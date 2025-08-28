@@ -182,4 +182,26 @@ class ErrCode extends AbstractConstants
      * @Message("获取七牛云文件信息失败")
      */
     const MATERIAL_CATEGORY_FILE_INFO=40200;
+
+    // 医疗版本相关错误码
+    /**
+     * @Message("用户名已注册")
+     */
+    const MED_USERNAME_EXISTS = 40001;
+    /**
+     * @Message("付费功能禁用")
+     */
+    const MED_PAYMENT_DISABLED = 40002;
+    /**
+     * @Message("每日咨询次数超限")
+     */
+    const MED_DAILY_LIMIT_EXCEEDED = 40003;
+    /**
+     * @Message("咨询内容过长")
+     */
+    const MED_CONVERSATION_TOO_LONG = 40004;
+    /**
+     * @Message("内容敏感词过滤")
+     */
+    const MED_CONTENT_FILTERED = 40005;
 }

@@ -56,6 +56,11 @@ class AuthController extends BaseController
      */
     public function register(UserRegisterRequest $request, SmsService $service)
     {
+        // 医疗模式下简化注册流程
+        if (env('MEDICAL_MODE', false) && env('MED_SIMPLE_AUTH', true)) {
+            return $this->medicalRegister($request);
+        }
+
         /* @var LoginConfigDto $config */
         $loginConfig = Config::toDto(Config::LOGIN);
 
@@ -140,6 +145,41 @@ class AuthController extends BaseController
         $member->changePassword($request->input('password'));
 
         return $this->success();
+    }
+
+    /**
+     * 医疗版本简化注册
+     */
+    private function medicalRegister(Request $request)
+    {
+        $username = $request->input('username');
+        $password = $request->input('password');
+        
+        if (empty($username) || empty($password)) {
+            return $this->error(ErrCode::VALIDATE_ERR, '用户名和密码不能为空');
+        }
+        
+        // 检查用户名是否已存在
+        if (Member::where('username', $username)->exists()) {
+            return $this->error(ErrCode::MED_USERNAME_EXISTS, '用户名已存在');
+        }
+        
+        // 创建用户
+        $member = new Member();
+        $member->username = $username;
+        $member->password = password_hash($password, PASSWORD_DEFAULT);
+        $member->mobile = $request->input('mobile', ''); // 手机号可选
+        $member->source = 'medical'; // 标记来源
+        $member->save();
+        
+        // 记录医疗版本注册日志
+        Log::info('Medical user registered', [
+            'username' => $username,
+            'ip' => $request->getClientIp(),
+            'user_agent' => $request->header('User-Agent')
+        ]);
+        
+        return $this->success(['message' => '注册成功']);
     }
 
 }

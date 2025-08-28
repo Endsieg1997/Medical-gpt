@@ -5,6 +5,7 @@ namespace App\Http\Control\Web;
 use App\Base\WechatServiceProvider;
 use App\Exception\ErrCode;
 use App\Exception\LogicException;
+use App\Exception\BusinessException;
 use App\Http\Dto\OrderDto;
 use App\Http\Dto\PayOrderDto;
 use App\Http\Request\Web\OrderRequest;
@@ -38,6 +39,11 @@ class OrderController extends BaseController
      */
     public function create(OrderRequest $request, PaymentService $service)
     {
+        // 医疗版本禁用付费功能
+        if (env('MEDICAL_MODE', false) && !env('MED_ENABLE_PAYMENT', false)) {
+            throw new BusinessException(ErrCode::MED_PAYMENT_DISABLED, '医疗版本暂不支持付费功能');
+        }
+
         $package = Package::query()->where('show', Package::SHOW_ON)->find($request->input('package_id'));
 
         throw_unless($package, LogicException::class, ErrCode::PACKAGE_IS_OFFLINE);
