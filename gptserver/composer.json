@@ -49,8 +49,7 @@
         "overtrue/easy-sms": "^2.4",
         "phpoffice/phpspreadsheet": "^1.28",
         "qiniu/php-sdk": "^7.8",
-        "ramsey/uuid": "^4.2",
-        "w7corp/easywechat": "^5.0"
+        "ramsey/uuid": "^4.2"
     },
     "require-dev": {
         "cblink/hyperf-yapi-doc": "^0.2.0",
@@ -89,7 +88,10 @@
     "prefer-stable": true,
     "config": {
         "optimize-autoloader": true,
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "easywechat-composer/easywechat-composer": false
+        }
     },
     "extra": [],
     "scripts": {

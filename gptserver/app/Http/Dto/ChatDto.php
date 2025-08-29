@@ -56,7 +56,7 @@ class ChatDto extends Dto
 
         return [
             'model' => ModelConst::GPT_35_TURBO,
-            'temperature' => $this->getItem('temperature', 0.8),
+            'temperature' => $this->getItem('temperature', 0.3),
             'top_p' => $this->getItem('top_p', 1),
             'stream' => true,
             'presence_penalty' => $this->getItem('presence_penalty', 1),

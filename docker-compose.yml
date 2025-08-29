@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    container_name: medical-gpt-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: 666666
+      MYSQL_DATABASE: gptlink_edu
+      MYSQL_USER: gptlink
+      MYSQL_PASSWORD: 666666
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+      - ./docker/mysql/conf:/etc/mysql/conf.d
+    ports:
+      - "3306:3306"
+    networks:
+      - medical-gpt
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: medical-gpt-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass "666666"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    networks:
+      - medical-gpt
+
+  # PHP后端服务
+  gptserver:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: medical-gpt-server
+    restart: unless-stopped
+    working_dir: /var/www/html
+    ports:
+      - "9000:80"
+      - "9503:9503"
+    environment:
+      - MEDICAL_MODE=true
+      - DB_HOST=mysql
+      - DB_DATABASE=gptlink_edu
+      - DB_USERNAME=gptlink
+      - DB_PASSWORD=666666
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=666666
+      - OPENAI_API_KEY=sk-bc607febd5244be593f2f91647219206
+      - OPENAI_MODEL=deepseek-chat
+      - OPENAI_HOST=https://api.deepseek.com
+      - OPENAI_MAX_TOKENS=2000
+      - OPENAI_TEMPERATURE=0.7
+      - MEDICAL_SAFETY_CHECK=true
+      - DAILY_REQUEST_LIMIT=50
+      - SESSION_TIMEOUT=1800
+    volumes:
+      - ./gptserver:/var/www/html
+      - ./logs/php:/var/log/php
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - medical-gpt
+
+  # Nginx Web服务器
+  nginx:
+    image: nginx:alpine
+    container_name: medical-gpt-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./gptweb:/usr/share/nginx/html/web
+      - ./gptadmin:/usr/share/nginx/html/admin
+      - nginx_logs:/var/log/nginx
+      - ssl_certs:/etc/nginx/ssl
+    depends_on:
+      - gptserver
+    networks:
+      - medical-gpt
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  server_logs:
+    driver: local
+  nginx_logs:
+    driver: local
+  ssl_certs:
+    driver: local
+
+networks:
+  medical-gpt:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -12,8 +12,8 @@ return [
 
     'admin' => [
         'username' => env('ADMIN_USERNAME', 'admin'),
-        'password' =>  env('ADMIN_PASSWORD', 'admin888'),
-        'secret' => md5(env('ADMIN_USERNAME', 'admin') . env('ADMIN_PASSWORD', 'admin888')),
+        'password' =>  env('ADMIN_PASSWORD', '666666'),
+        'secret' => md5(env('ADMIN_USERNAME', 'admin') . env('ADMIN_PASSWORD', '666666')),
         'ttl' => env('ADMIN_TTL', 86400),
     ],
 

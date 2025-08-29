@@ -146,6 +146,94 @@
             line-height: 1.6;
             position: relative;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            white-space: pre-wrap;
+        }
+        
+        .message-content h1,
+        .message-content h2,
+        .message-content h3,
+        .message-content h4 {
+            margin: 16px 0 8px 0;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .message-content h1 {
+            font-size: 1.4em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 4px;
+        }
+        
+        .message-content h2 {
+            font-size: 1.3em;
+            color: #27ae60;
+        }
+        
+        .message-content h3 {
+            font-size: 1.2em;
+            color: #e67e22;
+        }
+        
+        .message-content h4 {
+            font-size: 1.1em;
+            color: #8e44ad;
+        }
+        
+        .message-content ul,
+        .message-content ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+        
+        .message-content li {
+            margin: 4px 0;
+            line-height: 1.5;
+        }
+        
+        .message-content strong {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .message-content p {
+            margin: 8px 0;
+        }
+        
+        .message-content .indent-1 {
+            margin-left: 20px;
+        }
+        
+        .message-content .indent-2 {
+            margin-left: 40px;
+        }
+        
+        .message-content .section {
+            margin: 12px 0;
+            padding: 8px 0;
+        }
+        
+        .message-content .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 8px 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+        
+        .message-content .important {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 8px 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+        
+        .message-content .tip {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 8px 12px;
+            margin: 8px 0;
+            border-radius: 4px;
         }
         
         .message.user .message-content {
@@ -398,6 +486,11 @@
                 flex-direction: column;
                 align-items: center;
             }
+            
+            .quick-question {
+                width: 100%;
+                text-align: center;
+            }
         }
     </style>
 </head>
@@ -405,46 +498,37 @@
     <div class="chat-container">
         <div class="chat-header">
             <h1>🏥 Medical-GPT 智能对话</h1>
-            <p>专业医疗健康咨询助手，为您提供24小时智能医疗服务</p>
+            <p>专业医疗AI助手，为您提供健康咨询服务</p>
         </div>
         
         <div class="status-bar">
             <div class="status-indicator">
                 <div class="status-dot"></div>
-                <span>AI医生在线</span>
+                <span>AI助手在线</span>
             </div>
-            <div id="messageCount">今日咨询：0/50</div>
+            <div>
+                <span id="messageCount">今日咨询：0/50</span>
+            </div>
         </div>
         
         <div class="chat-messages" id="chatMessages">
             <div class="welcome-message">
-                <h3>👋 欢迎使用Medical-GPT智能医疗助手</h3>
-                <p>我是您的专业医疗健康顾问，可以为您提供：</p>
-                <p>• 症状分析与初步诊断建议</p>
-                <p>• 健康知识科普与疾病预防</p>
-                <p>• 用药指导与注意事项</p>
-                <p>• 生活方式与健康管理建议</p>
-                <p style="color: #ff6b6b; font-weight: 500; margin-top: 15px;">⚠️ 重要提醒：本服务仅供参考，不能替代专业医疗诊断，紧急情况请立即就医！</p>
+                <h3>👋 欢迎使用Medical-GPT智能对话</h3>
+                <p>我是您的专业AI医疗顾问，具备丰富的医学知识和临床经验。</p>
+                <p>我可以为您提供：健康咨询、症状分析、用药指导、疾病预防等服务。</p>
+                <p>请选择下方快捷问题或直接输入您的问题：</p>
                 
                 <div class="quick-questions">
-                    <div class="quick-question" onclick="askQuickQuestion('我最近总是感觉疲劳，可能是什么原因？')">
-                        💤 疲劳乏力
-                    </div>
-                    <div class="quick-question" onclick="askQuickQuestion('头痛应该如何缓解？')">
-                        🤕 头痛问题
-                    </div>
-                    <div class="quick-question" onclick="askQuickQuestion('如何提高免疫力？')">
-                        🛡️ 提高免疫力
-                    </div>
-                    <div class="quick-question" onclick="askQuickQuestion('失眠怎么办？')">
-                        😴 睡眠问题
-                    </div>
+                    <div class="quick-question" onclick="askQuickQuestion('我最近总是感到疲劳，可能是什么原因？')">疲劳原因咨询</div>
+                    <div class="quick-question" onclick="askQuickQuestion('头痛应该如何缓解？')">头痛缓解方法</div>
+                    <div class="quick-question" onclick="askQuickQuestion('如何提高免疫力？')">提高免疫力</div>
+                    <div class="quick-question" onclick="askQuickQuestion('失眠怎么办？')">失眠解决方案</div>
                 </div>
             </div>
         </div>
         
         <div class="typing-indicator" id="typingIndicator">
-            <span>AI医生正在分析...</span>
+            <span>🏥 AI医生正在分析您的问题</span>
             <div class="typing-dots">
                 <div class="typing-dot"></div>
                 <div class="typing-dot"></div>
@@ -459,7 +543,8 @@
                     <div class="char-counter" id="charCounter">0/500</div>
                 </div>
                 <button class="send-button" id="sendButton" onclick="sendMessage()">
-                    <span>发送</span><span>📤</span>
+                    <span>发送</span>
+                    <span>📤</span>
                 </button>
             </div>
         </div>
@@ -565,11 +650,12 @@
                                     const data = JSON.parse(line.slice(6));
                                     if (data.text) {
                                         assistantMessage += data.text;
+                                        
                                         if (!messageElement) {
-                                            messageElement = addMessage(assistantMessage, 'assistant');
-                                        } else {
-                                            updateMessage(messageElement, assistantMessage);
+                                            messageElement = addMessage('', 'assistant');
                                         }
+                                        
+                                        updateMessage(messageElement, assistantMessage);
                                     }
                                 } catch (e) {
                                     // 忽略解析错误
@@ -623,7 +709,13 @@
             
             const messageContent = document.createElement('div');
             messageContent.className = 'message-content';
-            messageContent.textContent = content;
+            
+            // 如果是AI回答且有内容，进行格式化处理
+            if (type === 'assistant' && content) {
+                messageContent.innerHTML = formatMedicalResponse(content);
+            } else {
+                messageContent.textContent = content;
+            }
             
             const messageActions = document.createElement('div');
             messageActions.className = 'message-actions';
@@ -648,9 +740,77 @@
         
         function updateMessage(messageElement, content) {
             const messageContent = messageElement.querySelector('.message-content');
-            messageContent.textContent = content;
+            
+            // 如果是AI回答，进行格式化处理
+            if (messageElement.classList.contains('assistant')) {
+                messageContent.innerHTML = formatMedicalResponse(content);
+            } else {
+                messageContent.textContent = content;
+            }
+            
             const messagesContainer = document.getElementById('chatMessages');
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function formatMedicalResponse(content) {
+            // 转义HTML特殊字符
+            let formatted = content
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            
+            // 处理标题
+            formatted = formatted
+                .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                .replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+            
+            // 处理粗体文本
+            formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            
+            // 处理列表项
+            formatted = formatted.replace(/^- (.+)$/gm, '<li>$1</li>');
+            formatted = formatted.replace(/^\* (.+)$/gm, '<li>$1</li>');
+            
+            // 包装连续的列表项
+            formatted = formatted.replace(/((<li>.*<\/li>\s*)+)/g, '<ul>$1</ul>');
+            
+            // 处理段落
+            const lines = formatted.split('\n');
+            let result = [];
+            let inList = false;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                if (line === '') {
+                    if (!inList) result.push('<br>');
+                    continue;
+                }
+                
+                if (line.startsWith('<h') || line.startsWith('<ul>') || line.startsWith('</ul>')) {
+                    inList = line.includes('<ul>') || (inList && !line.includes('</ul>'));
+                    result.push(line);
+                } else if (line.startsWith('<li>')) {
+                    inList = true;
+                    result.push(line);
+                } else {
+                    inList = false;
+                    if (!line.startsWith('<')) {
+                        result.push(`<p>${line}</p>`);
+                    } else {
+                        result.push(line);
+                    }
+                }
+            }
+            
+            // 添加特殊样式类
+            let finalResult = result.join('\n')
+                .replace(/<p>(.*(注意事项|警示|提醒|重要).*)(<\/p>)/gi, '<div class="warning">$1</div>')
+                .replace(/<p>(.*(紧急|立即就医|严重).*)(<\/p>)/gi, '<div class="important">$1</div>')
+                .replace(/<p>(.*(建议|提示|小贴士).*)(<\/p>)/gi, '<div class="tip">$1</div>');
+            
+            return finalResult;
         }
         
         function showTypingIndicator() {
