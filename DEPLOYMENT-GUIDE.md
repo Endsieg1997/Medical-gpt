@@ -4,7 +4,21 @@
 
 ## 🚀 快速开始
 
-### 推荐部署流程
+### 云服务器部署（生产环境）
+
+**重要提示**: 此项目已配置为使用 `medicalgpt.asia` 域名，适合云服务器部署。
+
+#### 1. 域名配置
+确保您的域名 `medicalgpt.asia` 已正确解析到您的服务器IP地址。
+
+#### 2. SSL证书配置
+```bash
+# 配置SSL证书（生产环境推荐Let's Encrypt）
+chmod +x setup-ssl.sh
+./setup-ssl.sh
+```
+
+#### 3. 推荐部署流程
 
 1. **环境验证**（推荐第一步）
    ```bash
@@ -16,6 +30,10 @@
    - **增强部署**：`./quick-deploy-enhanced.sh`
    - **简化部署**：`./quick-deploy.sh`
    - **智能回退**：`./deploy-fallback.sh auto`
+
+### 本地开发环境
+
+如果需要在本地开发，请使用以下脚本：
 
 ## 📋 部署脚本说明
 

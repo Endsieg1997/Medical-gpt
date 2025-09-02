@@ -271,7 +271,7 @@ OPENAI_HOST=https://api.openai.com
 APP_NAME="Medical GPT"
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=http://localhost:8080
+APP_URL=https://medicalgpt.asia
 APP_TIMEZONE=Asia/Shanghai
 APP_KEY=$app_key
 
@@ -448,9 +448,9 @@ quick_deploy() {
     echo
     log_success "部署完成！"
     echo "==========================================="
-    echo "  应用地址: http://localhost:$web_port"
-    echo "  管理后台: http://localhost:$web_port/admin"
-    echo "  API文档: http://localhost:$web_port/api/docs"
+    echo "  应用地址: https://medicalgpt.asia"
+    echo "  管理后台: https://medicalgpt.asia/admin"
+    echo "  API文档: https://medicalgpt.asia/api/docs"
     echo "==========================================="
     echo
     log_info "查看日志: $COMPOSE_CMD logs -f"
