@@ -8,8 +8,8 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_DATABASE: ${DB_DATABASE:-gptlink_edu}
+      MYSQL_USER: ${DB_USERNAME:-gptlink}
       MYSQL_PASSWORD: ${DB_PASSWORD}
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
@@ -21,14 +21,20 @@ services:
       - "3306:3306"
     networks:
       - medical-gpt
-    command: --default-authentication-plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=256M --max-connections=200
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
   # Redis缓存
   redis:
     image: redis:7-alpine
     container_name: medical-gpt-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}" --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
       - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
@@ -36,12 +42,20 @@ services:
       - "6379:6379"
     networks:
       - medical-gpt
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # PHP后端服务
   gptserver:
     build:
       context: .
       dockerfile: ./docker/php/Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
     container_name: medical-gpt-server
     restart: unless-stopped
     working_dir: /var/www/html
@@ -49,31 +63,44 @@ services:
       - "9000:80"
       - "9503:9503"
     environment:
-      - MEDICAL_MODE=${MEDICAL_MODE}
+      - MEDICAL_MODE=${MEDICAL_MODE:-true}
       - DB_HOST=mysql
-      - DB_DATABASE=${DB_DATABASE}
-      - DB_USERNAME=${DB_USERNAME}
+      - DB_DATABASE=${DB_DATABASE:-gptlink_edu}
+      - DB_USERNAME=${DB_USERNAME:-gptlink}
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=${OPENAI_MODEL}
-      - OPENAI_HOST=${OPENAI_HOST}
-      - OPENAI_MAX_TOKENS=${OPENAI_MAX_TOKENS}
-      - OPENAI_TEMPERATURE=${OPENAI_TEMPERATURE}
-      - MEDICAL_SAFETY_CHECK=${MED_CONTENT_FILTER}
-      - DAILY_REQUEST_LIMIT=${MED_MAX_DAILY_REQUESTS}
-      - SESSION_TIMEOUT=${SESSION_LIFETIME}
+      - OPENAI_MODEL=${OPENAI_MODEL:-deepseek-chat}
+      - OPENAI_HOST=${OPENAI_HOST:-https://api.deepseek.com}
+      - OPENAI_MAX_TOKENS=${OPENAI_MAX_TOKENS:-2000}
+      - OPENAI_TEMPERATURE=${OPENAI_TEMPERATURE:-0.7}
+      - MEDICAL_SAFETY_CHECK=${MED_CONTENT_FILTER:-true}
+      - DAILY_REQUEST_LIMIT=${MED_MAX_DAILY_REQUESTS:-100}
+      - SESSION_TIMEOUT=${SESSION_LIFETIME:-120}
+      - APP_URL=${APP_URL:-http://localhost}
+      - COMPOSER_CACHE_DIR=/tmp/composer-cache
+      - COMPOSER_ALLOW_SUPERUSER=1
+      - COMPOSER_NO_INTERACTION=1
     volumes:
-      - ./gptserver:/var/www/html/gptserver
-      - ./gptweb:/var/www/html/gptweb
-      - ./gptadmin:/var/www/html/gptadmin
-      - ./logs/php:/var/log/php
+      - ./gptserver:/var/www/html/gptserver:cached
+      - ./gptweb:/var/www/html/gptweb:cached
+      - ./gptadmin:/var/www/html/gptadmin:cached
+      - ./logs/php:/var/log/php:delegated
+      - gptserver_vendor:/var/www/html/gptserver/vendor
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - medical-gpt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Nginx Web服务器
   nginx:
@@ -105,6 +132,8 @@ volumes:
   nginx_logs:
     driver: local
   ssl_certs:
+    driver: local
+  gptserver_vendor:
     driver: local
 
 networks:
