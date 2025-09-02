@@ -1,7 +1,10 @@
 #!/bin/bash
 
-nginx
+# 设置正确的工作目录
+cd /var/www/html/gptserver
 
-php /app/gptserver/hyperf migrate
+# 运行数据库迁移
+php hyperf migrate
 
-php /app/gptserver/hyperf start
+# 启动Hyperf服务器
+php hyperf start
