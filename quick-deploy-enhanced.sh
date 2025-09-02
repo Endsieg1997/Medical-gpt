@@ -360,10 +360,20 @@ quick_deploy() {
     
     # 验证compose命令是否真正可用
     log_info "验证Docker Compose命令..."
-    if ! $COMPOSE_CMD --version &> /dev/null; then
-        log_error "Docker Compose命令验证失败: $COMPOSE_CMD"
-        log_info "请检查Docker Compose安装是否正确"
-        exit 1
+    if [[ "$COMPOSE_CMD" == "docker compose" ]]; then
+        # 对于 docker compose，使用 version 子命令
+        if ! $COMPOSE_CMD version &> /dev/null; then
+            log_error "Docker Compose命令验证失败: $COMPOSE_CMD"
+            log_info "请检查Docker Compose Plugin安装是否正确"
+            exit 1
+        fi
+    else
+        # 对于 docker-compose，使用 --version 参数
+        if ! $COMPOSE_CMD --version &> /dev/null; then
+            log_error "Docker Compose命令验证失败: $COMPOSE_CMD"
+            log_info "请检查Docker Compose安装是否正确"
+            exit 1
+        fi
     fi
     
     log_success "使用Docker Compose命令: $COMPOSE_CMD"
