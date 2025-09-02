@@ -1,30 +1,39 @@
-# 使用官方PHP镜像
+# 医疗健康AI助手 - PHP服务容器
+# 基于PHP 8.1 Apache镜像
+
 FROM php:8.1-apache
 
 # 设置工作目录
 WORKDIR /var/www/html
 
-# 更新包管理器并安装基础依赖
+# 安装系统依赖
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    libzip-dev \
     zip \
     unzip \
-    && rm -rf /var/lib/apt/lists/*
-
-# 安装依赖
-RUN apt-get update && apt-get install -y \
-    libcurl4-openssl-dev \
-    libbrotli-dev \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libmcrypt-dev \
     libssl-dev \
-    libzip-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装PHP扩展
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    pdo_mysql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd \
+    zip \
+    sockets
 
 # 安装Redis扩展
 RUN pecl install redis && docker-php-ext-enable redis
@@ -35,33 +44,31 @@ RUN pecl install swoole && docker-php-ext-enable swoole
 # 安装Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# 设置Composer环境变量以允许root用户运行
+# 先复制composer文件
+COPY gptserver/composer.json gptserver/composer.lock /var/www/html/gptserver/
+
+# 设置Composer环境变量
 ENV COMPOSER_ALLOW_SUPERUSER=1
+ENV COMPOSER_NO_INTERACTION=1
+
+# 安装PHP依赖
+RUN cd /var/www/html/gptserver && composer install --no-dev --optimize-autoloader --no-scripts
 
 # 复制应用代码
-COPY . /var/www/html
+COPY . /var/www/html/
 
-# 设置权限 - 给予最宽松的权限以避免Composer安装问题
-RUN chmod -R 777 /var/www/html
-
-# 预安装Composer依赖（如果composer.json存在）
-RUN if [ -f "/var/www/html/gptserver/composer.json" ]; then \
-        cd /var/www/html/gptserver && \
-        rm -rf vendor composer.lock && \
-        COMPOSER_ALLOW_SUPERUSER=1 composer install --ignore-platform-reqs --no-interaction --prefer-dist --no-scripts; \
-    fi
-
-# 最后再次设置权限确保所有文件可访问
-RUN chmod -R 777 /var/www/html
+# 设置权限
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
 
 # 启用Apache mod_rewrite
 RUN a2enmod rewrite
 
+# 创建正确的启动脚本
+RUN printf '#!/bin/bash\n\n# 启动Apache服务\napache2ctl -D FOREGROUND\n' > /start.sh && chmod +x /start.sh
+
 # 暴露端口
 EXPOSE 80 9503
-
-# 创建启动脚本
-RUN printf '#!/bin/bash\n# 启动Swoole HTTP服务器\nphp /var/www/html/simple_start.php\n' > /start.sh && chmod +x /start.sh
 
 # 启动命令
 CMD ["/start.sh"]
