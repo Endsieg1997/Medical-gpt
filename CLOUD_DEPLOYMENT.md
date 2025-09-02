@@ -54,21 +54,12 @@ sudo chmod +x /usr/local/bin/docker-compose
 logout
 ```
 
-#### 2. 配置防火墙
+#### 2. 配置网络安全组
 
-```bash
-# Ubuntu/Debian (UFW)
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-
-# CentOS/RHEL (firewalld)
-sudo firewall-cmd --permanent --add-service=ssh
-sudo firewall-cmd --permanent --add-service=http
-sudo firewall-cmd --permanent --add-service=https
-sudo firewall-cmd --reload
-```
+请在云服务器控制台配置安全组，开放以下端口：
+- 22 (SSH)
+- 80 (HTTP)
+- 443 (HTTPS)
 
 #### 3. 配置环境变量
 
@@ -84,7 +75,7 @@ nano .env
 
 ```bash
 # 应用URL（替换为您的域名或IP）
-APP_URL=http://www.medicalgpt.asia
+APP_URL=http://medicalgpt.asia
 
 # DeepSeek API配置
 OPENAI_API_KEY=your-deepseek-api-key
@@ -106,7 +97,7 @@ REDIS_PASSWORD=your-redis-password
 
 **docker/nginx/conf.d/medical-gpt.conf**
 ```nginx
-server_name www.medicalgpt.asia *.medicalgpt.asia;
+server_name medicalgpt.asia *.medicalgpt.asia;
 ```
 
 #### 5. 启动服务
@@ -132,11 +123,11 @@ sudo apt install certbot  # Ubuntu/Debian
 sudo yum install certbot  # CentOS/RHEL
 
 # 申请证书（确保域名已解析到服务器）
-sudo certbot certonly --standalone -d www.medicalgpt.asia
+sudo certbot certonly --standalone -d medicalgpt.asia
 
 # 复制证书到项目目录
-sudo cp /etc/letsencrypt/live/www.medicalgpt.asia/fullchain.pem ssl_certs/cert.pem
-sudo cp /etc/letsencrypt/live/www.medicalgpt.asia/privkey.pem ssl_certs/key.pem
+sudo cp /etc/letsencrypt/live/medicalgpt.asia/fullchain.pem ssl_certs/cert.pem
+sudo cp /etc/letsencrypt/live/medicalgpt.asia/privkey.pem ssl_certs/key.pem
 sudo chown $USER:$USER ssl_certs/*.pem
 
 # 启用HTTPS配置
@@ -164,7 +155,7 @@ crontab -e
 类型    名称              值
 A       @                服务器公网IP
 A       www              服务器公网IP
-CNAME   medical          www.medicalgpt.asia
+CNAME   medical          medicalgpt.asia
 ```
 
 ## 安全配置
@@ -293,8 +284,8 @@ save 300 10
 
 2. **无法访问网站**
    ```bash
-   # 检查防火墙
-   sudo ufw status
+   # 检查端口开放状态
+netstat -tlnp | grep -E ':(80|443|22)'
    
    # 检查Nginx配置
    docker-compose exec nginx nginx -t

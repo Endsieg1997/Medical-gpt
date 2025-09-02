@@ -49,7 +49,7 @@ quick-deploy.bat
 
 ### 域名配置
 部署脚本会提示您输入域名，支持：
-- 完整域名：`www.medicalgpt.asia`
+- 完整域名：`medicalgpt.asia`
 - IP 地址：`123.456.789.012`
 - 本地测试：`localhost`
 
@@ -57,7 +57,7 @@ quick-deploy.bat
 关键配置项：
 ```env
 # 应用配置
-APP_URL=http://www.medicalgpt.asia
+APP_URL=http://medicalgpt.asia
 APP_ENV=production
 
 # DeepSeek AI 配置
@@ -90,10 +90,10 @@ docker-compose logs -f
 ```
 
 ### 2. 访问应用
-- **前端界面**: `http://www.medicalgpt.asia`
-- **管理后台**: `http://www.medicalgpt.asia/admin`
-- **API 文档**: `http://www.medicalgpt.asia/api/docs`
-- **健康检查**: `http://www.medicalgpt.asia/health`
+- **前端界面**: `http://medicalgpt.asia`
+- **管理后台**: `http://medicalgpt.asia/admin`
+- **API 文档**: `http://medicalgpt.asia/api/docs`
+- **健康检查**: `http://medicalgpt.asia/health`
 
 ### 3. 管理员登录
 - 用户名：`admin`（或自定义）
@@ -101,8 +101,8 @@ docker-compose logs -f
 
 ## 🛡️ 安全配置
 
-### 防火墙设置
-部署脚本会自动配置防火墙，开放必要端口：
+### 网络配置
+请确保云服务器安全组已开放必要端口：
 - 80 (HTTP)
 - 443 (HTTPS)
 - 22 (SSH)
@@ -113,7 +113,7 @@ docker-compose logs -f
 ./deploy-cloud.sh --ssl
 
 # 或手动配置
-sudo certbot --nginx -d www.medicalgpt.asia
+sudo certbot --nginx -d medicalgpt.asia
 ```
 
 ## 📊 监控和维护

@@ -24,23 +24,16 @@
 
 ### 1. 系统安全
 
-#### 1.1 防火墙配置
+#### 1.1 网络安全组配置
+
+在云服务器控制台配置安全组规则：
+- 入方向：仅开放必要端口（22、80、443）
+- 出方向：根据需要限制或允许
+- 源IP：限制管理端口（22）的访问来源
 
 ```bash
-# Ubuntu/Debian (UFW)
-sudo ufw --force reset
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow ssh
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw --force enable
-
-# CentOS/RHEL (firewalld)
-sudo firewall-cmd --permanent --add-service=http
-sudo firewall-cmd --permanent --add-service=https
-sudo firewall-cmd --permanent --add-service=ssh
-sudo firewall-cmd --reload
+# 检查端口开放状态
+netstat -tlnp | grep -E ':(80|443|22)'
 ```
 
 #### 1.2 SSH安全配置
@@ -134,7 +127,7 @@ rename-command DEBUG ""
 ```bash
 # 使用Let's Encrypt
 sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d www.medicalgpt.asia
+sudo certbot --nginx -d medicalgpt.asia
 
 # 自动续期
 sudo crontab -e
@@ -146,10 +139,9 @@ sudo crontab -e
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name www.medicalgpt.asia;
-    
-    ssl_certificate /etc/letsencrypt/live/www.medicalgpt.asia/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/www.medicalgpt.asia/privkey.pem;
+    server_name medicalgpt.asia;
+    ssl_certificate /etc/letsencrypt/live/medicalgpt.asia/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/medicalgpt.asia/privkey.pem;
     
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
@@ -759,7 +751,7 @@ fi
 
 1. **定期更新**：保持系统和应用程序的最新版本
 2. **最小权限原则**：为每个服务分配最小必要权限
-3. **网络隔离**：使用防火墙和网络分段
+3. **网络隔离**：使用安全组和网络分段
 4. **加密传输**：所有敏感数据传输使用HTTPS
 5. **审计日志**：记录所有重要操作和访问
 

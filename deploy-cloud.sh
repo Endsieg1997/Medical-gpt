@@ -101,39 +101,7 @@ install_docker_compose() {
     log_success "Docker Compose安装完成"
 }
 
-# 配置防火墙
-config_firewall() {
-    log_info "配置防火墙..."
-    
-    # 检查防火墙类型
-    if command -v ufw &> /dev/null; then
-        # Ubuntu/Debian UFW
-        log_info "检测到UFW防火墙"
-        sudo ufw allow 22/tcp
-        sudo ufw allow 80/tcp
-        sudo ufw allow 443/tcp
-        sudo ufw --force enable
-        log_success "UFW防火墙配置完成"
-    elif command -v firewall-cmd &> /dev/null; then
-        # CentOS/RHEL firewalld
-        log_info "检测到firewalld防火墙"
-        sudo firewall-cmd --permanent --add-service=ssh
-        sudo firewall-cmd --permanent --add-service=http
-        sudo firewall-cmd --permanent --add-service=https
-        sudo firewall-cmd --reload
-        log_success "firewalld防火墙配置完成"
-    elif command -v iptables &> /dev/null; then
-        # 传统iptables
-        log_info "检测到iptables防火墙"
-        sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
-        sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-        sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-        sudo iptables-save > /etc/iptables/rules.v4
-        log_success "iptables防火墙配置完成"
-    else
-        log_warning "未检测到防火墙，请手动配置开放80和443端口"
-    fi
-}
+
 
 # 配置域名
 config_domain() {
@@ -146,7 +114,7 @@ config_domain() {
         sed -i "s|APP_URL=.*|APP_URL=http://$DOMAIN_NAME|g" .env
         
         # 更新Nginx配置中的域名
-        sed -i "s|www.medicalgpt.asia|$DOMAIN_NAME|g" docker/nginx/conf.d/medical-gpt.conf
+        sed -i "s|medicalgpt.asia|$DOMAIN_NAME|g" docker/nginx/conf.d/medical-gpt.conf
         
         log_success "域名配置完成: $DOMAIN_NAME"
         
@@ -315,7 +283,6 @@ main() {
     fi
     
     check_requirements
-    config_firewall
     config_domain
     create_directories
     start_services

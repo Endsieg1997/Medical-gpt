@@ -129,7 +129,7 @@ install_dependencies() {
         sudo apt-get install -y curl wget git unzip htop iotop nethogs ufw fail2ban
     elif command -v yum &> /dev/null; then
         sudo yum update -y -q
-        sudo yum install -y curl wget git unzip htop iotop nethogs firewalld
+        sudo yum install -y curl wget git unzip htop iotop nethogs
     else
         log_error "不支持的包管理器"
         exit 1
@@ -212,50 +212,7 @@ install_docker_compose() {
     fi
 }
 
-# 配置防火墙
-setup_firewall() {
-    log_step "配置防火墙..."
-    
-    if command -v ufw &> /dev/null; then
-        # Ubuntu/Debian使用UFW
-        log_info "配置UFW防火墙..."
-        
-        sudo ufw --force reset
-        sudo ufw default deny incoming
-        sudo ufw default allow outgoing
-        
-        # 允许SSH
-        sudo ufw allow ssh
-        
-        # 允许HTTP和HTTPS
-        sudo ufw allow 80/tcp
-        sudo ufw allow 443/tcp
-        
-        # 启用防火墙
-        sudo ufw --force enable
-        
-        log_success "UFW防火墙配置完成"
-        
-    elif command -v firewall-cmd &> /dev/null; then
-        # CentOS/RHEL使用firewalld
-        log_info "配置firewalld防火墙..."
-        
-        sudo systemctl start firewalld
-        sudo systemctl enable firewalld
-        
-        # 允许HTTP和HTTPS
-        sudo firewall-cmd --permanent --add-service=http
-        sudo firewall-cmd --permanent --add-service=https
-        sudo firewall-cmd --permanent --add-service=ssh
-        
-        # 重载配置
-        sudo firewall-cmd --reload
-        
-        log_success "firewalld防火墙配置完成"
-    else
-        log_warning "未找到防火墙工具，请手动配置防火墙"
-    fi
-}
+
 
 # 创建项目目录结构
 setup_directories() {
@@ -785,7 +742,6 @@ main() {
     install_dependencies
     install_docker
     install_docker_compose
-    setup_firewall
     setup_directories
     check_environment_config
     pull_docker_images

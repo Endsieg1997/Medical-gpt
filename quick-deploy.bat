@@ -79,7 +79,7 @@ if %errorlevel% equ 0 (
     echo 重启服务: docker-compose restart
     echo.
     echo [提醒] 请及时修改默认密码！
-    echo [提醒] 如需外网访问，请配置域名和防火墙！
+    echo [提醒] 如需外网访问，请配置域名和云服务器安全组！
 ) else (
     echo.
     echo [错误] 服务启动失败，请检查配置和日志
