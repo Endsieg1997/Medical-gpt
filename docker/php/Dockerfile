@@ -58,7 +58,7 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
     && composer --version
 
 # 复制PHP配置文件
-COPY docker/php/php.ini /usr/local/etc/php/conf.d/custom.ini
+COPY ./docker/php/php.ini /usr/local/etc/php/conf.d/custom.ini
 
 # 复制应用代码
 COPY . /var/www/html/
@@ -89,8 +89,8 @@ RUN chown -R www-data:www-data /var/www/html \
 # 启用Apache模块
 RUN a2enmod rewrite headers ssl
 
-# 复制Apache配置
-COPY docker/nginx/conf.d/default.conf /etc/apache2/sites-available/000-default.conf 2>/dev/null || echo "Apache config not found, using default"
+# 使用默认Apache配置（nginx配置不适用于Apache）
+# Apache将使用默认配置
 
 # 创建健壮的启动脚本
 RUN printf '#!/bin/bash\n\
