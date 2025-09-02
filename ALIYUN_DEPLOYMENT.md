@@ -335,12 +335,12 @@ sudo ufw status
 # 安装Certbot
 sudo apt install certbot -y
 
-# 申请SSL证书（替换your-domain.com为实际域名）
-sudo certbot certonly --standalone -d your-domain.com
+# 申请SSL证书（替换www.medicalgpt.asia为实际域名）
+sudo certbot certonly --standalone -d www.medicalgpt.asia
 
-# 复制证书到项目目录
-sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem ./ssl_certs/
-sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem ./ssl_certs/
+# 复制证书文件
+sudo cp /etc/letsencrypt/live/www.medicalgpt.asia/fullchain.pem ./ssl_certs/
+sudo cp /etc/letsencrypt/live/www.medicalgpt.asia/privkey.pem ./ssl_certs/
 sudo chown $USER:$USER ./ssl_certs/*
 ```
 

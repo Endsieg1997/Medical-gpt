@@ -134,7 +134,7 @@ rename-command DEBUG ""
 ```bash
 # 使用Let's Encrypt
 sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d www.medicalgpt.asia
 
 # 自动续期
 sudo crontab -e
@@ -146,10 +146,10 @@ sudo crontab -e
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name your-domain.com;
+    server_name www.medicalgpt.asia;
     
-    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/www.medicalgpt.asia/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/www.medicalgpt.asia/privkey.pem;
     
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
