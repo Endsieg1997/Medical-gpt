@@ -389,10 +389,27 @@ quick_deploy() {
     
     # 构建并启动服务
     log_info "构建Docker镜像..."
-    $COMPOSE_CMD build --no-cache --parallel
+    if ! $COMPOSE_CMD build --no-cache --parallel; then
+        log_error "Docker镜像构建失败！"
+        log_info "可能的解决方案："
+        log_info "  1. 检查网络连接和Docker Hub访问"
+        log_info "  2. 清理Docker缓存: docker system prune -a"
+        log_info "  3. 检查Dockerfile语法"
+        log_info "  4. 尝试使用回退脚本: ./deploy-fallback.sh"
+        exit 1
+    fi
     
     log_info "启动服务..."
-    $COMPOSE_CMD up -d
+    if ! $COMPOSE_CMD up -d; then
+        log_error "服务启动失败！"
+        log_info "可能的解决方案："
+        log_info "  1. 检查端口占用: netstat -tulnp | grep -E ':(8080|3306|6379)'"
+        log_info "  2. 检查Docker服务状态: sudo systemctl status docker"
+        log_info "  3. 查看详细错误: $COMPOSE_CMD logs"
+        log_info "  4. 尝试逐步启动: $COMPOSE_CMD up -d mysql redis && sleep 10 && $COMPOSE_CMD up -d app nginx"
+        log_info "  5. 使用回退脚本: ./deploy-fallback.sh"
+        exit 1
+    fi
     
     # 等待服务就绪
     log_info "等待服务启动完成..."
@@ -438,6 +455,20 @@ quick_deploy() {
         echo "  2. 将 OPENAI_API_KEY 设置为您的实际API Key"
         echo "  3. 运行 $COMPOSE_CMD restart 重启服务"
     fi
+    
+    # 故障排除提示
+    echo
+    log_info "如果遇到问题，请尝试以下解决方案："
+    echo "  1. 环境验证: ./validate-environment.sh"
+    echo "  2. 回退部署: ./deploy-fallback.sh"
+    echo "  3. 传统部署: ./deploy-cloud.sh"
+    echo "  4. 简化部署: ./quick-deploy.sh"
+    echo "  5. 查看日志: $COMPOSE_CMD logs --tail=50"
+    echo "  6. 重新部署: $COMPOSE_CMD down && $0"
+    echo
+    log_info "获取更多帮助："
+    echo "  - 项目文档: README.md"
+    echo "  - 问题反馈: https://github.com/your-repo/issues"
 }
 
 # 主函数
@@ -456,8 +487,43 @@ main() {
     quick_deploy
 }
 
-# 错误处理
-trap 'log_error "脚本执行失败，请检查错误信息"' ERR
+# 全局错误处理函数
+handle_error() {
+    local exit_code=$?
+    local line_number=$1
+    
+    echo
+    log_error "脚本在第 $line_number 行执行失败 (退出码: $exit_code)"
+    
+    # 提供具体的错误恢复建议
+    log_info "错误恢复建议："
+    echo "  1. 检查网络连接和Docker服务状态"
+    echo "  2. 运行环境验证: ./validate-environment.sh"
+    echo "  3. 尝试回退部署: ./deploy-fallback.sh auto"
+    echo "  4. 查看详细日志: docker-compose logs 或 docker compose logs"
+    echo "  5. 清理并重试: docker system prune -f && $0"
+    echo
+    
+    # 显示当前Docker状态
+    if command -v docker &> /dev/null; then
+        log_info "当前Docker状态："
+        docker ps -a 2>/dev/null || echo "  无法获取Docker容器状态"
+        echo
+    fi
+    
+    log_info "如需更多帮助，请查看项目文档或提交问题反馈"
+    exit $exit_code
+}
+
+# 清理函数
+cleanup() {
+    log_info "正在清理临时资源..."
+    # 这里可以添加清理逻辑
+}
+
+# 设置错误处理
+trap 'handle_error $LINENO' ERR
+trap 'cleanup' EXIT
 
 # 运行主函数
 main "$@"
