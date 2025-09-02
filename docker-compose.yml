@@ -7,10 +7,10 @@ services:
     container_name: medical-gpt-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: 666666
-      MYSQL_DATABASE: gptlink_edu
-      MYSQL_USER: gptlink
-      MYSQL_PASSWORD: 666666
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
     volumes:
@@ -28,7 +28,7 @@ services:
     image: redis:7-alpine
     container_name: medical-gpt-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass "666666"
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
     volumes:
       - redis_data:/data
       - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
@@ -49,21 +49,21 @@ services:
       - "9000:80"
       - "9503:9503"
     environment:
-      - MEDICAL_MODE=true
+      - MEDICAL_MODE=${MEDICAL_MODE}
       - DB_HOST=mysql
-      - DB_DATABASE=gptlink_edu
-      - DB_USERNAME=gptlink
-      - DB_PASSWORD=666666
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
-      - REDIS_PASSWORD=666666
-      - OPENAI_API_KEY=sk-bc607febd5244be593f2f91647219206
-      - OPENAI_MODEL=deepseek-chat
-      - OPENAI_HOST=https://api.deepseek.com
-      - OPENAI_MAX_TOKENS=2000
-      - OPENAI_TEMPERATURE=0.7
-      - MEDICAL_SAFETY_CHECK=true
-      - DAILY_REQUEST_LIMIT=50
-      - SESSION_TIMEOUT=1800
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+      - OPENAI_HOST=${OPENAI_HOST}
+      - OPENAI_MAX_TOKENS=${OPENAI_MAX_TOKENS}
+      - OPENAI_TEMPERATURE=${OPENAI_TEMPERATURE}
+      - MEDICAL_SAFETY_CHECK=${MED_CONTENT_FILTER}
+      - DAILY_REQUEST_LIMIT=${MED_MAX_DAILY_REQUESTS}
+      - SESSION_TIMEOUT=${SESSION_LIFETIME}
     volumes:
       - ./gptserver:/var/www/html/gptserver
       - ./gptweb:/var/www/html/gptweb

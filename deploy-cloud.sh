@@ -170,6 +170,45 @@ setup_ssl() {
     log_success "SSL证书配置完成"
 }
 
+# 检查和配置环境变量
+setup_environment() {
+    log_info "配置环境变量..."
+    
+    # 检查.env文件是否存在
+    if [ ! -f ".env" ]; then
+        if [ -f ".env.example" ]; then
+            log_info "复制.env.example到.env"
+            cp .env.example .env
+        else
+            log_error ".env文件不存在，请先创建.env文件"
+            exit 1
+        fi
+    fi
+    
+    # 检查关键环境变量
+    source .env
+    
+    if [ -z "$OPENAI_API_KEY" ] || [ "$OPENAI_API_KEY" = "your-api-key-here" ]; then
+        log_warning "请配置OPENAI_API_KEY"
+        read -p "请输入您的DeepSeek API Key: " API_KEY
+        sed -i "s|OPENAI_API_KEY=.*|OPENAI_API_KEY=$API_KEY|g" .env
+    fi
+    
+    # 检查数据库密码
+    if [ -z "$DB_PASSWORD" ]; then
+        log_warning "数据库密码未设置，使用默认密码"
+        sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=666666|g" .env
+    fi
+    
+    # 检查Redis密码
+    if [ -z "$REDIS_PASSWORD" ]; then
+        log_warning "Redis密码未设置，使用默认密码"
+        sed -i "s|REDIS_PASSWORD=.*|REDIS_PASSWORD=666666|g" .env
+    fi
+    
+    log_success "环境变量配置完成"
+}
+
 # 创建必要目录
 create_directories() {
     log_info "创建必要的目录..."
@@ -185,6 +224,34 @@ create_directories() {
     log_success "目录创建完成"
 }
 
+# 验证配置文件
+validate_configs() {
+    log_info "验证配置文件..."
+    
+    # 检查docker-compose.yml
+    if ! docker-compose config > /dev/null 2>&1; then
+        log_error "docker-compose.yml配置文件有误"
+        docker-compose config
+        exit 1
+    fi
+    
+    # 检查必要文件
+    local required_files=(
+        "gptserver/composer.json"
+        "docker/php/Dockerfile"
+        "docker/nginx/nginx.conf"
+    )
+    
+    for file in "${required_files[@]}"; do
+        if [ ! -f "$file" ]; then
+            log_error "必要文件不存在: $file"
+            exit 1
+        fi
+    done
+    
+    log_success "配置文件验证通过"
+}
+
 # 启动服务
 start_services() {
     log_info "启动Docker服务..."
@@ -192,8 +259,18 @@ start_services() {
     # 停止现有服务
     docker-compose down --remove-orphans 2>/dev/null || true
     
+    # 清理旧镜像（可选）
+    read -p "是否清理旧的Docker镜像？(y/n): " CLEAN_IMAGES
+    if [[ $CLEAN_IMAGES =~ ^[Yy]$ ]]; then
+        docker system prune -f
+    fi
+    
     # 构建并启动服务
-    docker-compose up -d --build
+    log_info "构建Docker镜像..."
+    docker-compose build --no-cache
+    
+    log_info "启动服务容器..."
+    docker-compose up -d
     
     log_success "服务启动完成"
 }
@@ -283,8 +360,10 @@ main() {
     fi
     
     check_requirements
+    setup_environment
     config_domain
     create_directories
+    validate_configs
     start_services
     wait_for_services
     health_check
