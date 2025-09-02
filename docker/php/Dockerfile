@@ -61,7 +61,7 @@ RUN a2enmod rewrite
 EXPOSE 80 9503
 
 # 创建启动脚本
-RUN printf '#!/bin/bash\n# 启动Apache\napache2-ctl start\n# 启动Swoole HTTP服务器\nphp /var/www/html/simple_start.php &\n# 保持容器运行\napache2-ctl -D FOREGROUND\n' > /start.sh && chmod +x /start.sh
+RUN printf '#!/bin/bash\n# 启动Swoole HTTP服务器\nphp /var/www/html/simple_start.php\n' > /start.sh && chmod +x /start.sh
 
 # 启动命令
 CMD ["/start.sh"]
