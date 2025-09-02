@@ -65,7 +65,9 @@ services:
       - DAILY_REQUEST_LIMIT=50
       - SESSION_TIMEOUT=1800
     volumes:
-      - ./gptserver:/var/www/html
+      - ./gptserver:/var/www/html/gptserver
+      - ./gptweb:/var/www/html/gptweb
+      - ./gptadmin:/var/www/html/gptadmin
       - ./logs/php:/var/log/php
     depends_on:
       - mysql
