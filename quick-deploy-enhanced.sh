@@ -176,27 +176,69 @@ install_docker_compose_smart() {
         return 0
     fi
     
-    log_info "安装Docker Compose..."
+    log_warning "未找到Docker Compose，尝试安装..."
+    
+    # 方法1: 尝试通过包管理器安装
+    case "$OS" in
+        *"Ubuntu"*|*"Debian"*)
+            if sudo apt-get update && sudo apt-get install -y docker-compose-plugin; then
+                log_success "通过apt安装Docker Compose Plugin成功"
+                return 0
+            fi
+            ;;
+        *"CentOS"*|*"Red Hat"*|*"Rocky"*|*"AlmaLinux"*)
+            if sudo yum install -y docker-compose-plugin; then
+                log_success "通过yum安装Docker Compose Plugin成功"
+                return 0
+            fi
+            ;;
+    esac
+    
+    # 方法2: 下载二进制文件
+    log_info "尝试下载Docker Compose二进制文件..."
     
     # 获取最新版本
-    local latest_version=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    local latest_version
+    latest_version=$(curl -s --connect-timeout 10 https://api.github.com/repos/docker/compose/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' 2>/dev/null)
     
     if [ -z "$latest_version" ]; then
         latest_version="v2.20.2"
         log_warning "无法获取最新版本，使用默认版本: $latest_version"
     fi
     
-    # 下载并安装
-    sudo curl -L "https://github.com/docker/compose/releases/download/${latest_version}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    sudo chmod +x /usr/local/bin/docker-compose
+    # 尝试多个下载源
+    local download_urls=(
+        "https://github.com/docker/compose/releases/download/${latest_version}/docker-compose-$(uname -s)-$(uname -m)"
+        "https://get.daocloud.io/docker/compose/releases/download/${latest_version}/docker-compose-$(uname -s)-$(uname -m)"
+    )
     
-    # 验证安装
-    if command -v docker-compose &> /dev/null; then
-        log_success "Docker Compose安装完成"
-    else
-        log_error "Docker Compose安装失败"
-        exit 1
+    for url in "${download_urls[@]}"; do
+        log_info "尝试从 $url 下载..."
+        if sudo curl -L --connect-timeout 30 --max-time 300 "$url" -o /usr/local/bin/docker-compose; then
+            sudo chmod +x /usr/local/bin/docker-compose
+            if command -v docker-compose &> /dev/null && docker-compose --version &> /dev/null; then
+                log_success "Docker Compose安装完成"
+                return 0
+            fi
+        fi
+        log_warning "从 $url 下载失败，尝试下一个源..."
+    done
+    
+    # 方法3: 使用pip安装（最后的回退方案）
+    if command -v pip3 &> /dev/null || command -v pip &> /dev/null; then
+        log_info "尝试使用pip安装docker-compose..."
+        if pip3 install docker-compose 2>/dev/null || pip install docker-compose 2>/dev/null; then
+            if command -v docker-compose &> /dev/null; then
+                log_success "通过pip安装Docker Compose成功"
+                return 0
+            fi
+        fi
     fi
+    
+    log_error "所有Docker Compose安装方法都失败了"
+    log_info "请手动安装Docker Compose后重试"
+    log_info "安装指南: https://docs.docker.com/compose/install/"
+    exit 1
 }
 
 # 创建优化的环境配置
@@ -284,11 +326,47 @@ quick_deploy() {
     # 检查Docker Compose
     install_docker_compose_smart
     
-    # 确定compose命令
-    local compose_cmd="docker-compose"
-    if docker compose version &> /dev/null; then
-        compose_cmd="docker compose"
+    # 智能确定compose命令（全局变量）
+    log_info "检测Docker Compose命令..."
+    
+    # 优先使用docker compose（新版本）
+    if docker compose version &> /dev/null 2>&1; then
+        COMPOSE_CMD="docker compose"
+        log_success "检测到Docker Compose Plugin: $COMPOSE_CMD"
+    # 回退到docker-compose（旧版本）
+    elif command -v docker-compose &> /dev/null && docker-compose --version &> /dev/null 2>&1; then
+        COMPOSE_CMD="docker-compose"
+        log_success "检测到Docker Compose: $COMPOSE_CMD"
+    # 尝试创建别名作为临时解决方案
+    elif command -v docker-compose &> /dev/null; then
+        COMPOSE_CMD="docker-compose"
+        log_warning "检测到docker-compose但版本检查失败，尝试使用: $COMPOSE_CMD"
+    else
+        log_error "未找到可用的Docker Compose命令"
+        log_info "请确保已安装以下之一："
+        log_info "  1. Docker Compose Plugin (推荐): docker compose"
+        log_info "  2. 独立的Docker Compose: docker-compose"
+        log_info "安装指南: https://docs.docker.com/compose/install/"
+        
+        # 提供手动解决方案
+        log_info "\n临时解决方案："
+        log_info "如果您确定已安装Docker Compose，可以尝试："
+        log_info "  alias docker-compose='docker compose'"
+        log_info "  或者"
+        log_info "  ln -s /usr/bin/docker /usr/local/bin/docker-compose"
+        
+        exit 1
     fi
+    
+    # 验证compose命令是否真正可用
+    log_info "验证Docker Compose命令..."
+    if ! $COMPOSE_CMD --version &> /dev/null; then
+        log_error "Docker Compose命令验证失败: $COMPOSE_CMD"
+        log_info "请检查Docker Compose安装是否正确"
+        exit 1
+    fi
+    
+    log_success "使用Docker Compose命令: $COMPOSE_CMD"
     
     # 创建环境配置
     if [ ! -f ".env" ]; then
@@ -299,7 +377,7 @@ quick_deploy() {
     
     # 停止现有服务
     log_info "停止现有服务..."
-    $compose_cmd down --remove-orphans 2>/dev/null || true
+    $COMPOSE_CMD down --remove-orphans 2>/dev/null || true
     
     # 清理资源（可选）
     read -p "是否清理旧的Docker资源以释放空间? (y/n): " -n 1 -r
@@ -311,10 +389,10 @@ quick_deploy() {
     
     # 构建并启动服务
     log_info "构建Docker镜像..."
-    $compose_cmd build --no-cache --parallel
+    $COMPOSE_CMD build --no-cache --parallel
     
     log_info "启动服务..."
-    $compose_cmd up -d
+    $COMPOSE_CMD up -d
     
     # 等待服务就绪
     log_info "等待服务启动完成..."
@@ -322,7 +400,7 @@ quick_deploy() {
     
     # 显示状态
     log_info "服务状态:"
-    $compose_cmd ps
+    $COMPOSE_CMD ps
     
     # 健康检查
     log_info "执行健康检查..."
@@ -348,9 +426,9 @@ quick_deploy() {
     echo "  API文档: http://localhost:$web_port/api/docs"
     echo "==========================================="
     echo
-    log_info "查看日志: $compose_cmd logs -f"
-    log_info "停止服务: $compose_cmd down"
-    log_info "重启服务: $compose_cmd restart"
+    log_info "查看日志: $COMPOSE_CMD logs -f"
+    log_info "停止服务: $COMPOSE_CMD down"
+    log_info "重启服务: $COMPOSE_CMD restart"
     
     # 提示配置OpenAI API Key
     if grep -q "your_openai_api_key_here" .env; then
@@ -358,7 +436,7 @@ quick_deploy() {
         log_warning "请设置您的OpenAI API Key:"
         echo "  1. 编辑 .env 文件"
         echo "  2. 将 OPENAI_API_KEY 设置为您的实际API Key"
-        echo "  3. 运行 $compose_cmd restart 重启服务"
+        echo "  3. 运行 $COMPOSE_CMD restart 重启服务"
     fi
 }
 
