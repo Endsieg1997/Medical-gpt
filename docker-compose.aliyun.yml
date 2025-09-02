@@ -1,0 +1,343 @@
+version: '3.8'
+
+services:
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    container_name: medical-gpt-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-your_secure_password}
+      MYSQL_DATABASE: gptlink_edu
+      MYSQL_USER: gptlink
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-your_secure_password}
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+      - ./docker/mysql/conf:/etc/mysql/conf.d
+      - ./logs/mysql:/var/log/mysql
+    ports:
+      - "127.0.0.1:3306:3306"  # 仅本地访问，提高安全性
+    networks:
+      - medical-gpt
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --sql_mode=STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
+      --max_connections=1000
+      --innodb_buffer_pool_size=512M
+      --innodb_log_file_size=128M
+      --innodb_flush_log_at_trx_commit=2
+      --innodb_flush_method=O_DIRECT
+      --query_cache_size=64M
+      --query_cache_type=1
+      --slow_query_log=1
+      --slow_query_log_file=/var/log/mysql/slow.log
+      --long_query_time=2
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: medical-gpt-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-your_redis_password}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --tcp-keepalive 300
+      --timeout 300
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./logs/redis:/var/log/redis
+    ports:
+      - "127.0.0.1:6379:6379"  # 仅本地访问，提高安全性
+    networks:
+      - medical-gpt
+    environment:
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-your_redis_password}", "ping"]
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # PHP后端服务
+  gptserver:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+      args:
+        - PHP_VERSION=8.1
+    container_name: medical-gpt-server
+    restart: unless-stopped
+    working_dir: /var/www/html
+    environment:
+      # 应用配置
+      - APP_NAME=medical-gpt
+      - APP_ENV=production
+      - MEDICAL_MODE=true
+      - TZ=Asia/Shanghai
+      
+      # 数据库配置
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=gptlink_edu
+      - DB_USERNAME=gptlink
+      - DB_PASSWORD=${MYSQL_PASSWORD:-your_secure_password}
+      
+      # Redis配置
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-your_redis_password}
+      
+      # OpenAI API配置
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
+      - OPENAI_HOST=${OPENAI_HOST:-https://api.openai.com}
+      - OPENAI_MAX_TOKENS=2000
+      - OPENAI_TEMPERATURE=0.7
+      
+      # 医疗模式配置
+      - MEDICAL_SAFETY_CHECK=true
+      - DAILY_REQUEST_LIMIT=50
+      - SESSION_TIMEOUT=1800
+      - MEDICAL_TITLE=医疗健康AI助手
+      
+      # 管理员配置
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-your_admin_password}
+      - ADMIN_TTL=7200
+      
+      # 性能配置
+      - PHP_MEMORY_LIMIT=512M
+      - PHP_MAX_EXECUTION_TIME=300
+      - PHP_MAX_INPUT_TIME=300
+      - PHP_POST_MAX_SIZE=20M
+      - PHP_UPLOAD_MAX_FILESIZE=20M
+    volumes:
+      - ./gptserver:/var/www/html
+      - ./logs/php:/var/log/php
+      - /tmp:/tmp
+    ports:
+      - "127.0.0.1:9000:80"     # 仅本地访问
+      - "127.0.0.1:9503:9503"   # 仅本地访问
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - medical-gpt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+      interval: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # Nginx Web服务器
+  nginx:
+    image: nginx:alpine
+    container_name: medical-gpt-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./gptweb:/usr/share/nginx/html/web:ro
+      - ./gptadmin:/usr/share/nginx/html/admin:ro
+      - ./logs/nginx:/var/log/nginx
+      - ./ssl_certs:/etc/nginx/ssl:ro
+    environment:
+      - TZ=Asia/Shanghai
+      - NGINX_WORKER_PROCESSES=auto
+      - NGINX_WORKER_CONNECTIONS=1024
+    depends_on:
+      gptserver:
+        condition: service_healthy
+    networks:
+      - medical-gpt
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+      interval: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # 可选：监控服务 (Prometheus + Grafana)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: medical-gpt-prometheus
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - medical-gpt
+    profiles:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: medical-gpt-grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - TZ=Asia/Shanghai
+    networks:
+      - medical-gpt
+    profiles:
+      - monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # 可选：日志收集服务
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.8.0
+    container_name: medical-gpt-filebeat
+    restart: unless-stopped
+    user: root
+    volumes:
+      - ./monitoring/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./logs:/var/log/app:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - medical-gpt
+    profiles:
+      - logging
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+volumes:
+  mysql_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/mysql
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/redis
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  medical-gpt:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.name: medical-gpt-br
+      com.docker.network.driver.mtu: 1500
+
+# 配置文件说明:
+# 1. 所有数据库端口仅绑定到127.0.0.1，提高安全性
+# 2. 添加了健康检查和资源限制
+# 3. 优化了MySQL和Redis配置参数
+# 4. 添加了时区配置(Asia/Shanghai)
+# 5. 配置了日志轮转，防止日志文件过大
+# 6. 添加了可选的监控服务(使用profiles控制)
+# 7. 使用本地绑定卷，便于数据管理和备份
+# 8. 优化了网络配置，指定了子网和网关
+# 9. 添加了性能调优参数
+# 10. 支持通过环境变量灵活配置密码和API密钥
+
+# 使用方法:
+# 1. 基础部署: docker-compose -f docker-compose.aliyun.yml up -d
+# 2. 包含监控: docker-compose -f docker-compose.aliyun.yml --profile monitoring up -d
+# 3. 包含日志收集: docker-compose -f docker-compose.aliyun.yml --profile logging up -d
+# 4. 完整部署: docker-compose -f docker-compose.aliyun.yml --profile monitoring --profile logging up -d
