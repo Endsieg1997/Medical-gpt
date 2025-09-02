@@ -45,7 +45,7 @@ RUN pecl install swoole && docker-php-ext-enable swoole
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 # 先复制composer文件
-COPY gptserver/composer.json gptserver/composer.lock /var/www/html/gptserver/
+COPY ./gptserver/composer.json ./gptserver/composer.lock /var/www/html/gptserver/
 
 # 设置Composer环境变量
 ENV COMPOSER_ALLOW_SUPERUSER=1
