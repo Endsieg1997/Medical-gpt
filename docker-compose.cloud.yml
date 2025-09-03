@@ -1,0 +1,270 @@
+version: '3.8'
+
+services:
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    container_name: medical-gpt-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-your_secure_password}
+      MYSQL_DATABASE: gptlink_edu
+      MYSQL_USER: gptlink
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-your_secure_password}
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+      TZ: Asia/Shanghai
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+      - ./docker/mysql/conf:/etc/mysql/conf.d
+      - ./logs/mysql:/var/log/mysql
+    ports:
+      - "127.0.0.1:3306:3306"  # 仅本地访问，提高安全性
+    networks:
+      - medical-gpt
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --sql_mode=STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
+      --max_connections=1000
+      --innodb_buffer_pool_size=512M
+      --innodb_log_file_size=128M
+      --innodb_flush_log_at_trx_commit=2
+      --innodb_flush_method=O_DIRECT
+      --slow_query_log=1
+      --slow_query_log_file=/var/log/mysql/slow.log
+      --long_query_time=2
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: medical-gpt-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-your_redis_password}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --tcp-keepalive 300
+      --timeout 300
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./logs/redis:/var/log/redis
+    ports:
+      - "127.0.0.1:6379:6379"  # 仅本地访问，提高安全性
+    networks:
+      - medical-gpt
+    environment:
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-your_redis_password}", "ping"]
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # PHP后端服务
+  gptserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medical-gpt-server
+    restart: unless-stopped
+    working_dir: /opt/www
+    environment:
+      # 应用配置
+      - APP_NAME=medical-gpt
+      - APP_ENV=production
+      - MEDICAL_MODE=true
+      - TZ=Asia/Shanghai
+      
+      # 数据库配置
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=gptlink_edu
+      - DB_USERNAME=gptlink
+      - DB_PASSWORD=${MYSQL_PASSWORD:-your_secure_password}
+      
+      # Redis配置
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-your_redis_password}
+      
+      # DeepSeek AI配置（与本地成功配置保持一致）
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-deepseek-chat}
+      - OPENAI_HOST=${OPENAI_HOST:-https://api.deepseek.com}
+      - OPENAI_MAX_TOKENS=2000
+      - OPENAI_TEMPERATURE=0.7
+      
+      # 医疗模式配置（继承本地成功配置）
+      - MEDICAL_SAFETY_CHECK=true
+      - MEDICAL_VERSION=${MEDICAL_VERSION:-1.0}
+      - MEDICAL_TITLE=${MEDICAL_TITLE:-医疗健康AI助手}
+      - MED_MAX_DAILY_REQUESTS=${MED_MAX_DAILY_REQUESTS:-50}
+      - MED_MAX_CONVERSATION_LENGTH=${MED_MAX_CONVERSATION_LENGTH:-20}
+      - MED_ENABLE_PAYMENT=${MED_ENABLE_PAYMENT:-false}
+      - MED_ENABLE_REGISTRATION=${MED_ENABLE_REGISTRATION:-true}
+      - MED_SIMPLE_AUTH=${MED_SIMPLE_AUTH:-true}
+      - MED_CONTENT_FILTER=${MED_CONTENT_FILTER:-true}
+      - MED_BLOCKED_KEYWORDS=${MED_BLOCKED_KEYWORDS}
+      - MED_LOG_CONVERSATIONS=${MED_LOG_CONVERSATIONS:-true}
+      - MED_ENABLE_IP_LIMIT=${MED_ENABLE_IP_LIMIT:-true}
+      - MED_IP_WHITELIST=${MED_IP_WHITELIST}
+      - MED_SYSTEM_TITLE=${MED_SYSTEM_TITLE}
+      - MED_SYSTEM_DESCRIPTION=${MED_SYSTEM_DESCRIPTION}
+      - MED_SYSTEM_KEYWORDS=${MED_SYSTEM_KEYWORDS}
+      - MED_THEME_COLOR=${MED_THEME_COLOR:-#2c5aa0}
+      - MED_LOGO_URL=${MED_LOGO_URL}
+      
+      # 兼容性配置
+      - DAILY_REQUEST_LIMIT=${DAILY_REQUEST_LIMIT:-50}
+      - SESSION_TIMEOUT=${SESSION_TIMEOUT:-1800}
+      
+      # 管理员配置
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-your_admin_password}
+      - ADMIN_TTL=7200
+      
+      # 性能配置
+      - PHP_MEMORY_LIMIT=512M
+      - PHP_MAX_EXECUTION_TIME=300
+      - PHP_MAX_INPUT_TIME=300
+      - PHP_POST_MAX_SIZE=20M
+      - PHP_UPLOAD_MAX_FILESIZE=20M
+    volumes:
+      - ./gptserver:/opt/www
+      - ./logs/php:/var/log/php
+    ports:
+      - "127.0.0.1:9501:9501"   # 仅本地访问
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - medical-gpt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9501/health"]
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+      interval: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # Nginx Web服务器 - 云服务器版本
+  nginx:
+    image: nginx:alpine
+    container_name: medical-gpt-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d/medical-gpt-cloud.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./gptweb:/usr/share/nginx/html/web:ro
+      - ./gptadmin:/usr/share/nginx/html/admin:ro
+      - ./logs/nginx:/var/log/nginx
+      - ./ssl_certs:/etc/nginx/ssl:ro
+    environment:
+      - TZ=Asia/Shanghai
+      - NGINX_WORKER_PROCESSES=auto
+      - NGINX_WORKER_CONNECTIONS=1024
+    depends_on:
+      gptserver:
+        condition: service_healthy
+    networks:
+      - medical-gpt
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+      interval: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+volumes:
+  mysql_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/mysql
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/redis
+
+networks:
+  medical-gpt:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.name: medical-gpt-br
+      com.docker.network.driver.mtu: 1500
+
+# 云服务器部署配置说明:
+# 1. 专为 medicalgpt.asia 域名优化
+# 2. 使用专用的 Nginx 配置文件 (medical-gpt-cloud.conf)
+# 3. 支持 HTTPS 和 SSL 证书
+# 4. 优化了安全性和性能配置
+# 5. 包含健康检查和资源限制
+# 6. 配置了日志轮转和监控
+
+# 部署命令:
+# docker-compose -f docker-compose.cloud.yml up -d
+
+# 环境变量配置:
+# 请在 .env.cloud 文件中配置相关密码和API密钥
