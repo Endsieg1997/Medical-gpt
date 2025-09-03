@@ -112,25 +112,30 @@ EOF
     log_success "Docker和Docker Compose安装完成"
 }
 
-# 安装SSL证书
-install_ssl() {
-    log_info "安装SSL证书..."
+# 配置SSL证书目录（手动配置）
+setup_ssl_directory() {
+    log_info "配置SSL证书目录..."
     
-    # 安装certbot
-    yum install -y epel-release
-    yum install -y certbot
+    # 创建SSL证书目录
+    mkdir -p /opt/medical-gpt/ssl_certs
     
-    # 停止可能占用80端口的服务
-    systemctl stop nginx 2>/dev/null || true
-    systemctl stop httpd 2>/dev/null || true
+    log_warning "SSL证书需要手动配置:"
+    echo "  1. 将SSL证书文件放置到: /opt/medical-gpt/ssl_certs/"
+    echo "  2. 证书文件命名: medicalgpt.asia.crt"
+    echo "  3. 私钥文件命名: medicalgpt.asia.key"
+    echo "  4. 或者使用自签名证书进行测试"
     
-    # 申请SSL证书
-    certbot certonly --standalone -d medicalgpt.asia -d www.medicalgpt.asia --email admin@medicalgpt.asia --agree-tos --non-interactive
+    # 生成自签名证书用于测试
+    if [[ ! -f "/opt/medical-gpt/ssl_certs/medicalgpt.asia.crt" ]]; then
+        log_info "生成自签名证书用于测试..."
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout /opt/medical-gpt/ssl_certs/medicalgpt.asia.key \
+            -out /opt/medical-gpt/ssl_certs/medicalgpt.asia.crt \
+            -subj "/C=CN/ST=Beijing/L=Beijing/O=MedicalGPT/CN=medicalgpt.asia"
+        log_warning "已生成自签名证书，生产环境请替换为正式证书"
+    fi
     
-    # 设置自动续期
-    echo "0 2 * * * root certbot renew --quiet && docker-compose -f /opt/medical-gpt/docker-compose.aliyun.yml restart nginx" >> /etc/crontab
-    
-    log_success "SSL证书安装完成"
+    log_success "SSL证书目录配置完成"
 }
 
 # 配置防火墙
@@ -279,7 +284,7 @@ show_info() {
     echo "  应用目录: /opt/medical-gpt"
     echo "  配置文件: /opt/medical-gpt/.env"
     echo "  日志目录: /opt/medical-gpt/logs"
-    echo "  SSL证书: /etc/letsencrypt/live/medicalgpt.asia/"
+    echo "  SSL证书: /opt/medical-gpt/ssl_certs/"
     echo
     log_info "常用命令:"
     echo "  查看服务状态: docker-compose -f /opt/medical-gpt/docker-compose.aliyun.yml ps"
@@ -291,7 +296,8 @@ show_info() {
     echo "  1. 域名 medicalgpt.asia 已正确解析到此服务器"
     echo "  2. 已编辑 .env 文件配置必要的API密钥"
     echo "  3. 防火墙已开放 80 和 443 端口"
-    echo "  4. SSL证书已正确安装"
+    echo "  4. 如需HTTPS，请将正式SSL证书放置到 /opt/medical-gpt/ssl_certs/ 目录"
+    echo "  5. 当前使用自签名证书，浏览器会显示安全警告"
 }
 
 # 主函数
@@ -302,7 +308,7 @@ main() {
     check_system
     install_docker
     setup_firewall
-    install_ssl
+    setup_ssl_directory
     deploy_app
     check_services
     setup_monitoring
