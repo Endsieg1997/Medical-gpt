@@ -1,67 +1,72 @@
-# 使用官方PHP镜像
+# 医疗健康AI助手 - Hyperf服务容器
+# 基于PHP 8.1 CLI镜像，专为Hyperf框架优化
+
 FROM php:8.1-apache
 
-# 设置工作目录
-WORKDIR /var/www/html
+# 设置环境变量
+ENV DEBIAN_FRONTEND=noninteractive
+ENV COMPOSER_ALLOW_SUPERUSER=1
+ENV COMPOSER_NO_INTERACTION=1
 
-# 更新包管理器并安装基础依赖
+# 设置工作目录
+WORKDIR /var/www/html/gptserver
+
+# 安装系统依赖
 RUN apt-get update && apt-get install -y \
     git \
     curl \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    libzip-dev \
+    libssl-dev \
+    libicu-dev \
+    pkg-config \
     zip \
     unzip \
-    && rm -rf /var/lib/apt/lists/*
-
-# 安装依赖
-RUN apt-get update && apt-get install -y \
-    libcurl4-openssl-dev \
-    libbrotli-dev \
-    libssl-dev \
-    libzip-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # 安装PHP扩展
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+RUN docker-php-ext-configure intl \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        mbstring \
+        pcntl \
+        bcmath \
+        zip \
+        sockets \
+        intl \
+        opcache
 
-# 安装Redis扩展
-RUN pecl install redis && docker-php-ext-enable redis
-
-# 安装Swoole扩展
-RUN pecl install swoole && docker-php-ext-enable swoole
+# 安装Redis和Swoole扩展
+RUN pecl install redis swoole \
+    && docker-php-ext-enable redis swoole
 
 # 安装Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# 设置Composer环境变量以允许root用户运行
-ENV COMPOSER_ALLOW_SUPERUSER=1
+# 复制PHP配置文件
+COPY ./docker/php/php.ini /usr/local/etc/php/conf.d/custom.ini
 
-# 复制应用代码
-COPY . /var/www/html
+# 复制gptserver应用代码
+COPY ./gptserver /var/www/html/gptserver
 
-# 设置权限 - 给予最宽松的权限以避免Composer安装问题
-RUN chmod -R 777 /var/www/html
-
-# 预安装Composer依赖（如果composer.json存在）
-RUN if [ -f "/var/www/html/gptserver/composer.json" ]; then \
-        cd /var/www/html/gptserver && \
-        rm -rf vendor composer.lock && \
-        COMPOSER_ALLOW_SUPERUSER=1 composer install --ignore-platform-reqs --no-interaction --prefer-dist --no-scripts; \
+# 安装PHP依赖
+RUN if [ -f composer.json ]; then \
+        composer install --no-dev --optimize-autoloader --no-interaction; \
     fi
 
-# 最后再次设置权限确保所有文件可访问
-RUN chmod -R 777 /var/www/html
+# 创建必要的目录并设置权限
+RUN mkdir -p storage/logs storage/cache \
+    && chmod -R 777 storage
 
-# 启用Apache mod_rewrite
-RUN a2enmod rewrite
+# 复制启动脚本
+COPY ./gptserver/start.sh /start.sh
+RUN chmod +x /start.sh
 
-# 暴露端口
-EXPOSE 80 9503
-
-# 创建启动脚本
-RUN printf '#!/bin/bash\n# 启动Apache\napache2-ctl start\n# 启动Swoole HTTP服务器\nphp /var/www/html/simple_start.php &\n# 保持容器运行\napache2-ctl -D FOREGROUND\n' > /start.sh && chmod +x /start.sh
+# 暴露Hyperf默认端口
+EXPOSE 9501
 
 # 启动命令
 CMD ["/start.sh"]

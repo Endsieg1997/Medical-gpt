@@ -309,24 +309,15 @@ networks:
 
 ### 4. 安全配置
 
-#### 4.1 防火墙配置
+#### 4.1 网络安全组配置
+
+在阿里云控制台配置安全组规则：
+- 入方向：开放 22、80、443 端口
+- 出方向：允许所有流量
 
 ```bash
-# 安装UFW防火墙
-sudo apt install ufw -y
-
-# 配置防火墙规则
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow ssh
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-
-# 启用防火墙
-sudo ufw --force enable
-
-# 查看防火墙状态
-sudo ufw status
+# 检查端口开放状态
+netstat -tlnp | grep -E ':(80|443|22)'
 ```
 
 #### 4.2 SSL证书配置
@@ -335,12 +326,12 @@ sudo ufw status
 # 安装Certbot
 sudo apt install certbot -y
 
-# 申请SSL证书（替换your-domain.com为实际域名）
-sudo certbot certonly --standalone -d your-domain.com
+# 申请SSL证书（替换medicalgpt.asia为实际域名）
+sudo certbot certonly --standalone -d medicalgpt.asia
 
-# 复制证书到项目目录
-sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem ./ssl_certs/
-sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem ./ssl_certs/
+# 复制证书文件
+sudo cp /etc/letsencrypt/live/medicalgpt.asia/fullchain.pem ./ssl_certs/
+sudo cp /etc/letsencrypt/live/medicalgpt.asia/privkey.pem ./ssl_certs/
 sudo chown $USER:$USER ./ssl_certs/*
 ```
 
@@ -715,7 +706,7 @@ sudo systemctl start fail2ban
 # 在.env文件中使用复杂密码
 # 定期更换API密钥
 # 启用HTTPS
-# 配置防火墙规则
+# 配置安全组规则
 # 定期备份数据
 ```
 
@@ -760,7 +751,7 @@ docker-compose -f docker-compose.aliyun.yml exec gptserver php artisan migrate
 
 1. **完整的环境配置**：从系统准备到Docker安装
 2. **优化的容器配置**：针对阿里云环境优化的Docker Compose配置
-3. **安全配置**：防火墙、SSL证书、访问控制等
+3. **安全配置**：安全组、SSL证书、访问控制等
 4. **自动化部署**：一键部署脚本
 5. **监控和维护**：日志管理、性能监控、备份策略
 6. **故障排除**：常见问题解决方案

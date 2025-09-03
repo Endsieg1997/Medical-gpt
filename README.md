@@ -40,12 +40,44 @@
 项目提供有限的权限控制功能，项目配置文件位于 `gptserver/.env`，如诺不存在此文件，将 `gptserver/.env.example` 更名为 `.env` 作为配置项进行使用，详细的配置说明 [点此查看](./docs/ENV.md)
 
 ## 部署
-项目支持多种部署方式，部署文档参考：[点此查看](https://github.com/gptlink/gptlink-deploy)
+项目支持多种部署方式：
 
+### 本地开发部署
 - PHP 环境部署
 - Docker 部署
 - Docker Compose 部署
-- ...
+
+### 云服务器部署
+
+#### 一键部署（推荐）
+
+**Linux/macOS 云服务器：**
+```bash
+# 下载并运行云服务器部署脚本
+chmod +x deploy-cloud.sh
+./deploy-cloud.sh
+```
+
+**Windows 服务器：**
+```cmd
+# 运行 Windows 快速部署脚本
+quick-deploy.bat
+```
+
+#### 手动部署
+1. 克隆项目到云服务器
+2. 复制 `.env.example` 为 `.env` 并配置相关参数
+3. 修改 `APP_URL` 为你的域名
+4. 运行 `docker-compose up -d` 启动服务
+
+#### 网络检查工具
+```bash
+# 检查服务器网络配置和服务状态
+chmod +x check-network.sh
+./check-network.sh
+```
+
+详细的云服务器部署说明请参考：[CLOUD_DEPLOYMENT.md](./CLOUD_DEPLOYMENT.md)
 
 ### 访问
 
