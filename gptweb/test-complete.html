@@ -510,7 +510,7 @@
             input.value = '';
             
             try {
-                const response = await fetch('/openai/chat-process', {
+                const response = await fetch('/api/openai/chat-process', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

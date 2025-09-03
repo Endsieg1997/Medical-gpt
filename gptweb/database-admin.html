@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>医疗AI助手 - 数据库管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .nav-tab {
+            flex: 1;
+            padding: 15px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: #6c757d;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-tab.active {
+            background: white;
+            color: #007bff;
+            border-bottom: 3px solid #007bff;
+        }
+        
+        .nav-tab:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .table-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .table-header h3 {
+            color: #495057;
+            font-size: 1.3em;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge-info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 医疗AI助手</h1>
+            <p>数据库管理与监控面板</p>
+        </div>
+        
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('overview')">📊 概览</button>
+            <button class="nav-tab" onclick="showTab('users')">👥 用户管理</button>
+            <button class="nav-tab" onclick="showTab('conversations')">💬 对话记录</button>
+            <button class="nav-tab" onclick="showTab('messages')">📝 消息内容</button>
+            <button class="nav-tab" onclick="showTab('config')">⚙️ 系统配置</button>
+            <button class="nav-tab" onclick="showTab('departments')">🏥 医疗科室</button>
+            <button class="nav-tab" onclick="showTab('diseases')">🩺 疾病分类</button>
+        </div>
+        
+        <div class="content">
+            <!-- 概览标签页 -->
+            <div id="overview" class="tab-content active">
+                <button class="refresh-btn" onclick="loadOverview()">🔄 刷新数据</button>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3 id="total-users">-</h3>
+                        <p>注册用户总数</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="total-conversations">-</h3>
+                        <p>对话总数</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="total-messages">-</h3>
+                        <p>消息总数</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="total-departments">-</h3>
+                        <p>医疗科室</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="total-diseases">-</h3>
+                        <p>疾病分类</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="active-today">-</h3>
+                        <p>今日活跃用户</p>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>📈 系统状态</h3>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>服务</th>
+                                <th>状态</th>
+                                <th>端口</th>
+                                <th>描述</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>MySQL 数据库</td>
+                                <td><span class="badge badge-success">运行中</span></td>
+                                <td>3306</td>
+                                <td>主数据库服务</td>
+                            </tr>
+                            <tr>
+                                <td>PHP 后端服务</td>
+                                <td><span class="badge badge-success">运行中</span></td>
+                                <td>9503</td>
+                                <td>API接口服务</td>
+                            </tr>
+                            <tr>
+                                <td>Nginx 代理</td>
+                                <td><span class="badge badge-success">运行中</span></td>
+                                <td>8080</td>
+                                <td>反向代理服务</td>
+                            </tr>
+                            <tr>
+                                <td>Redis 缓存</td>
+                                <td><span class="badge badge-success">运行中</span></td>
+                                <td>6379</td>
+                                <td>缓存服务</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 用户管理标签页 -->
+            <div id="users" class="tab-content">
+                <button class="refresh-btn" onclick="loadUsers()">🔄 刷新用户数据</button>
+                
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>👥 用户列表</h3>
+                    </div>
+                    <div id="users-content" class="loading">正在加载用户数据...</div>
+                </div>
+            </div>
+            
+            <!-- 对话记录标签页 -->
+            <div id="conversations" class="tab-content">
+                <button class="refresh-btn" onclick="loadConversations()">🔄 刷新对话数据</button>
+                
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>💬 对话记录</h3>
+                    </div>
+                    <div id="conversations-content" class="loading">正在加载对话数据...</div>
+                </div>
+            </div>
+            
+            <!-- 消息内容标签页 -->
+            <div id="messages" class="tab-content">
+                <button class="refresh-btn" onclick="loadMessages()">🔄 刷新消息数据</button>
+                
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>📝 消息内容</h3>
+                    </div>
+                    <div id="messages-content" class="loading">正在加载消息数据...</div>
+                </div>
+            </div>
+            
+            <!-- 系统配置标签页 -->
+            <div id="config" class="tab-content">
+                <button class="refresh-btn" onclick="loadConfig()">🔄 刷新配置数据</button>
+                
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>⚙️ 系统配置</h3>
+                    </div>
+                    <div id="config-content" class="loading">正在加载配置数据...</div>
+                </div>
+            </div>
+            
+            <!-- 医疗科室标签页 -->
+            <div id="departments" class="tab-content">
+                <button class="refresh-btn" onclick="loadDepartments()">🔄 刷新科室数据</button>
+                
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>🏥 医疗科室</h3>
+                    </div>
+                    <div id="departments-content" class="loading">正在加载科室数据...</div>
+                </div>
+            </div>
+            
+            <!-- 疾病分类标签页 -->
+            <div id="diseases" class="tab-content">
+                <button class="refresh-btn" onclick="loadDiseases()">🔄 刷新疾病数据</button>
+                
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>🩺 疾病分类</h3>
+                    </div>
+                    <div id="diseases-content" class="loading">正在加载疾病数据...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 标签页切换
+        function showTab(tabName) {
+            // 隐藏所有标签页内容
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+            
+            // 移除所有标签页的激活状态
+            const tabs = document.querySelectorAll('.nav-tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // 显示选中的标签页
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        // 模拟数据加载
+        function loadOverview() {
+            // 模拟统计数据
+            document.getElementById('total-users').textContent = '156';
+            document.getElementById('total-conversations').textContent = '1,234';
+            document.getElementById('total-messages').textContent = '8,567';
+            document.getElementById('total-departments').textContent = '10';
+            document.getElementById('total-diseases').textContent = '10';
+            document.getElementById('active-today').textContent = '23';
+        }
+        
+        function loadUsers() {
+            const content = document.getElementById('users-content');
+            content.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>用户名</th>
+                            <th>邮箱</th>
+                            <th>用户类型</th>
+                            <th>注册时间</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td>张医生</td>
+                            <td>zhang@hospital.com</td>
+                            <td><span class="badge badge-info">医生</span></td>
+                            <td>2025-01-15 09:30:00</td>
+                            <td><span class="badge badge-success">活跃</span></td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td>李护士</td>
+                            <td>li@hospital.com</td>
+                            <td><span class="badge badge-info">护士</span></td>
+                            <td>2025-01-16 14:20:00</td>
+                            <td><span class="badge badge-success">活跃</span></td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td>王患者</td>
+                            <td>wang@patient.com</td>
+                            <td><span class="badge badge-warning">患者</span></td>
+                            <td>2025-01-17 16:45:00</td>
+                            <td><span class="badge badge-success">活跃</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        function loadConversations() {
+            const content = document.getElementById('conversations-content');
+            content.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>对话ID</th>
+                            <th>用户</th>
+                            <th>对话标题</th>
+                            <th>AI模型</th>
+                            <th>消息数量</th>
+                            <th>创建时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td>张医生</td>
+                            <td>高血压咨询</td>
+                            <td>gpt-3.5-turbo</td>
+                            <td>8</td>
+                            <td>2025-01-20 10:15:00</td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td>李护士</td>
+                            <td>糖尿病护理指导</td>
+                            <td>gpt-3.5-turbo</td>
+                            <td>12</td>
+                            <td>2025-01-20 14:30:00</td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td>王患者</td>
+                            <td>老年人健康管理</td>
+                            <td>gpt-3.5-turbo</td>
+                            <td>6</td>
+                            <td>2025-01-20 16:20:00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        function loadMessages() {
+            const content = document.getElementById('messages-content');
+            content.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>消息ID</th>
+                            <th>对话ID</th>
+                            <th>角色</th>
+                            <th>消息内容</th>
+                            <th>发送时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td>1</td>
+                            <td><span class="badge badge-info">用户</span></td>
+                            <td>我最近血压有点高，应该注意什么？</td>
+                            <td>2025-01-20 10:15:30</td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td>1</td>
+                            <td><span class="badge badge-success">AI助手</span></td>
+                            <td>高血压需要注意以下几点：1.控制饮食，减少盐分摄入；2.适量运动；3.定期监测血压；4.按医嘱服药。建议您及时就医。</td>
+                            <td>2025-01-20 10:15:45</td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td>2</td>
+                            <td><span class="badge badge-info">用户</span></td>
+                            <td>糖尿病患者日常护理要注意什么？</td>
+                            <td>2025-01-20 14:30:15</td>
+                        </tr>
+                        <tr>
+                            <td>4</td>
+                            <td>2</td>
+                            <td><span class="badge badge-success">AI助手</span></td>
+                            <td>糖尿病日常护理要点：1.血糖监测；2.饮食控制；3.足部护理；4.定期检查；5.遵医嘱用药。如有不适请及时就医。</td>
+                            <td>2025-01-20 14:30:30</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        function loadConfig() {
+            const content = document.getElementById('config-content');
+            content.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>配置项</th>
+                            <th>配置值</th>
+                            <th>说明</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>medical_mode</td>
+                            <td>true</td>
+                            <td>医疗模式开关</td>
+                            <td><span class="badge badge-success">启用</span></td>
+                        </tr>
+                        <tr>
+                            <td>system_title</td>
+                            <td>医疗健康AI助手</td>
+                            <td>系统标题</td>
+                            <td><span class="badge badge-success">正常</span></td>
+                        </tr>
+                        <tr>
+                            <td>max_daily_requests</td>
+                            <td>50</td>
+                            <td>每日最大请求次数</td>
+                            <td><span class="badge badge-success">正常</span></td>
+                        </tr>
+                        <tr>
+                            <td>openai_model</td>
+                            <td>gpt-3.5-turbo</td>
+                            <td>AI模型配置</td>
+                            <td><span class="badge badge-success">正常</span></td>
+                        </tr>
+                        <tr>
+                            <td>shanghai_dialect_support</td>
+                            <td>true</td>
+                            <td>上海话支持</td>
+                            <td><span class="badge badge-success">启用</span></td>
+                        </tr>
+                        <tr>
+                            <td>elderly_care_mode</td>
+                            <td>true</td>
+                            <td>老年人护理模式</td>
+                            <td><span class="badge badge-success">启用</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        function loadDepartments() {
+            const content = document.getElementById('departments-content');
+            content.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>科室名称</th>
+                            <th>描述</th>
+                            <th>创建时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>1</td><td>内科</td><td>诊治内脏器官疾病</td><td>2024-01-15 10:30:00</td></tr>
+                        <tr><td>2</td><td>外科</td><td>手术治疗各种疾病</td><td>2024-01-15 10:30:00</td></tr>
+                        <tr><td>3</td><td>儿科</td><td>专门诊治儿童疾病</td><td>2024-01-15 10:30:00</td></tr>
+                        <tr><td>4</td><td>妇产科</td><td>妇女生殖健康和分娩</td><td>2024-01-15 10:30:00</td></tr>
+                        <tr><td>5</td><td>骨科</td><td>骨骼肌肉系统疾病</td><td>2024-01-15 10:30:00</td></tr>
+                        <tr><td>6</td><td>心内科</td><td>心血管系统疾病</td><td>2024-01-15 10:30:00</td></tr>
+                        <tr><td>7</td><td>神经科</td><td>神经系统疾病</td><td>2024-01-15 10:30:00</td></tr>
+                        <tr><td>8</td><td>皮肤科</td><td>皮肤相关疾病</td><td>2024-01-15 10:30:00</td></tr>
+                        <tr><td>9</td><td>眼科</td><td>眼部疾病诊治</td><td>2024-01-15 10:30:00</td></tr>
+                        <tr><td>10</td><td>耳鼻喉科</td><td>耳鼻咽喉疾病</td><td>2024-01-15 10:30:00</td></tr>
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        function loadDiseases() {
+            const content = document.getElementById('diseases-content');
+            content.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>疾病名称</th>
+                            <th>所属科室</th>
+                            <th>描述</th>
+                            <th>创建时间</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>1</td><td>高血压</td><td>心内科</td><td>血压持续升高的慢性疾病</td><td>2024-01-15 10:35:00</td></tr>
+                        <tr><td>2</td><td>糖尿病</td><td>内科</td><td>血糖代谢异常疾病</td><td>2024-01-15 10:35:00</td></tr>
+                        <tr><td>3</td><td>心脏病</td><td>心内科</td><td>心脏功能异常疾病</td><td>2024-01-15 10:35:00</td></tr>
+                        <tr><td>4</td><td>骨折</td><td>骨科</td><td>骨骼断裂外伤</td><td>2024-01-15 10:35:00</td></tr>
+                        <tr><td>5</td><td>感冒</td><td>内科</td><td>上呼吸道感染</td><td>2024-01-15 10:35:00</td></tr>
+                        <tr><td>6</td><td>胃炎</td><td>内科</td><td>胃黏膜炎症</td><td>2024-01-15 10:35:00</td></tr>
+                        <tr><td>7</td><td>皮疹</td><td>皮肤科</td><td>皮肤表面异常</td><td>2024-01-15 10:35:00</td></tr>
+                        <tr><td>8</td><td>近视</td><td>眼科</td><td>视力异常</td><td>2024-01-15 10:35:00</td></tr>
+                        <tr><td>9</td><td>中耳炎</td><td>耳鼻喉科</td><td>中耳感染炎症</td><td>2024-01-15 10:35:00</td></tr>
+                        <tr><td>10</td><td>关节炎</td><td>骨科</td><td>关节炎症疾病</td><td>2024-01-15 10:35:00</td></tr>
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        // 页面加载时初始化数据
+        document.addEventListener('DOMContentLoaded', function() {
+            loadOverview();
+        });
+    </script>
+</body>
+</html>
