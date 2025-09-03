@@ -1,769 +1,348 @@
-# 医疗健康AI助手 - 阿里云服务器部署方案
+# 医疗健康AI助手 - 阿里云服务器部署指南
 
-## 项目架构概述
+## 概述
 
-本项目是基于GPTLink改造的医疗健康AI助手，采用微服务架构，包含以下核心组件：
+本指南基于本地成功部署经验，提供在阿里云服务器上部署医疗健康AI助手的完整流程。
 
-### 服务组件
-- **Frontend (gptweb)**: Vue.js前端应用，提供用户交互界面
-- **Admin (gptadmin)**: 管理后台，用于系统管理和配置
-- **Backend (gptserver)**: PHP Hyperf框架后端API服务
-- **Database**: MySQL 8.0数据库
-- **Cache**: Redis 7缓存服务
-- **Proxy**: Nginx反向代理和负载均衡
+**域名**: `medicalgpt.asia`  
+**部署方式**: Docker Compose  
+**SSL证书**: Let's Encrypt 自动申请  
+**反向代理**: Nginx  
 
-### 技术栈
-- **后端**: PHP 8.0+ + Hyperf框架
-- **前端**: Vue.js + Element UI
-- **数据库**: MySQL 8.0
-- **缓存**: Redis 7
-- **容器**: Docker + Docker Compose
-- **代理**: Nginx
-- **AI服务**: OpenAI API / DeepSeek API
+## 系统要求
 
-## 阿里云服务器部署方案
+### 服务器配置
+- **操作系统**: CentOS 7/8 或 Ubuntu 18.04/20.04
+- **内存**: 最少 2GB，推荐 4GB
+- **存储**: 最少 20GB，推荐 50GB
+- **CPU**: 最少 2核，推荐 4核
+- **网络**: 公网IP，带宽不少于5Mbps
 
-### 1. 服务器配置要求
+### 域名配置
+- 确保域名 `medicalgpt.asia` 已解析到服务器公网IP
+- 建议同时配置 `www.medicalgpt.asia` 子域名
 
-#### 推荐配置
-- **CPU**: 4核心及以上
-- **内存**: 8GB及以上
-- **存储**: 100GB SSD云盘
-- **带宽**: 5Mbps及以上
-- **操作系统**: Ubuntu 20.04 LTS / CentOS 8
+## 快速部署
 
-#### 最低配置
-- **CPU**: 2核心
-- **内存**: 4GB
-- **存储**: 50GB SSD云盘
-- **带宽**: 3Mbps
-
-### 2. 环境准备
-
-#### 2.1 安装Docker和Docker Compose
+### 1. 准备服务器
 
 ```bash
 # 更新系统
-sudo apt update && sudo apt upgrade -y
+yum update -y  # CentOS
+# 或
+apt update && apt upgrade -y  # Ubuntu
 
-# 安装Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# 启动Docker服务
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# 添加用户到docker组
-sudo usermod -aG docker $USER
-
-# 安装Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-
-# 验证安装
-docker --version
-docker-compose --version
+# 安装基础工具
+yum install -y git curl wget vim net-tools  # CentOS
+# 或
+apt install -y git curl wget vim net-tools  # Ubuntu
 ```
 
-#### 2.2 配置阿里云Docker镜像加速
+### 2. 上传代码
 
 ```bash
-# 创建Docker配置目录
-sudo mkdir -p /etc/docker
-
-# 配置镜像加速器
-sudo tee /etc/docker/daemon.json <<-'EOF'
-{
-  "registry-mirrors": [
-    "https://mirror.ccs.tencentyun.com",
-    "https://docker.mirrors.ustc.edu.cn",
-    "https://reg-mirror.qiniu.com"
-  ],
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "100m",
-    "max-file": "3"
-  }
-}
-EOF
-
-# 重启Docker服务
-sudo systemctl daemon-reload
-sudo systemctl restart docker
-```
-
-### 3. 项目部署
-
-#### 3.1 下载项目代码
-
-```bash
-# 创建项目目录
-sudo mkdir -p /opt/medical-gpt
+# 创建应用目录
+mkdir -p /opt/medical-gpt
 cd /opt/medical-gpt
 
-# 克隆项目（或上传项目文件）
-# git clone <your-repository-url> .
-# 或者直接上传项目文件到服务器
+# 方式1: 使用Git克隆（推荐）
+git clone <your-repository-url> .
 
-# 设置目录权限
-sudo chown -R $USER:$USER /opt/medical-gpt
-chmod -R 755 /opt/medical-gpt
+# 方式2: 手动上传文件
+# 将本地项目文件上传到 /opt/medical-gpt 目录
 ```
 
-#### 3.2 配置环境变量
+### 3. 配置环境变量
 
 ```bash
 # 复制环境配置文件
-cp gptserver/.env.example gptserver/.env
+cp .env.aliyun .env
 
-# 编辑环境配置
-vim gptserver/.env
+# 编辑配置文件
+vim .env
 ```
 
-**关键配置项说明：**
+**重要配置项**:
+```bash
+# 数据库密码（必须修改）
+MYSQL_ROOT_PASSWORD=your_secure_mysql_root_password_here
+MYSQL_PASSWORD=your_secure_mysql_password_here
 
-```env
-# 应用配置
-APP_NAME=medical-gpt
-APP_ENV=production
+# Redis密码（必须修改）
+REDIS_PASSWORD=your_secure_redis_password_here
 
-# 数据库配置（与docker-compose.yml保持一致）
-DB_HOST=mysql
-DB_PORT=3306
-DB_DATABASE=gptlink_edu
-DB_USERNAME=gptlink
-DB_PASSWORD=your_secure_password_here
+# API密钥（必须配置）
+OPENAI_API_KEY=your_deepseek_api_key_here
 
-# Redis配置
-REDIS_HOST=redis
-REDIS_AUTH=your_redis_password_here
-REDIS_PORT=6379
+# JWT密钥（必须修改）
+JWT_SECRET=your_jwt_secret_key_here
+ENCRYPTION_KEY=your_encryption_key_here
 
-# 管理员账号
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=your_admin_password_here
-ADMIN_TTL=7200
-
-# OpenAI API配置
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-3.5-turbo
-OPENAI_HOST=https://api.openai.com
-# 或使用DeepSeek API
-# OPENAI_HOST=https://api.deepseek.com
-# OPENAI_MODEL=deepseek-chat
-
-# 医疗模式配置
-MEDICAL_MODE=true
-MEDICAL_TITLE=医疗健康AI助手
-MEDICAL_SAFETY_CHECK=true
-DAILY_REQUEST_LIMIT=50
-SESSION_TIMEOUT=1800
+# 邮件配置（可选）
+MAIL_USERNAME=your_email@aliyun.com
+MAIL_PASSWORD=your_email_password
 ```
 
-#### 3.3 创建阿里云优化的Docker Compose配置
-
-创建 `docker-compose.aliyun.yml`：
-
-```yaml
-version: '3.8'
-
-services:
-  # MySQL数据库
-  mysql:
-    image: mysql:8.0
-    container_name: medical-gpt-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-your_secure_password}
-      MYSQL_DATABASE: gptlink_edu
-      MYSQL_USER: gptlink
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-your_secure_password}
-      MYSQL_CHARSET: utf8mb4
-      MYSQL_COLLATION: utf8mb4_unicode_ci
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./docker/mysql/init:/docker-entrypoint-initdb.d
-      - ./docker/mysql/conf:/etc/mysql/conf.d
-      - ./logs/mysql:/var/log/mysql
-    ports:
-      - "127.0.0.1:3306:3306"  # 仅本地访问
-    networks:
-      - medical-gpt
-    command: >
-      --default-authentication-plugin=mysql_native_password
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
-      --sql_mode=STRICT_TRANS_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO
-      --max_connections=1000
-      --innodb_buffer_pool_size=512M
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 20s
-      retries: 10
-
-  # Redis缓存
-  redis:
-    image: redis:7-alpine
-    container_name: medical-gpt-redis
-    restart: unless-stopped
-    command: >
-      redis-server
-      --appendonly yes
-      --requirepass ${REDIS_PASSWORD:-your_redis_password}
-      --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
-    volumes:
-      - redis_data:/data
-      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
-      - ./logs/redis:/var/log/redis
-    ports:
-      - "127.0.0.1:6379:6379"  # 仅本地访问
-    networks:
-      - medical-gpt
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-your_redis_password}", "ping"]
-      timeout: 3s
-      retries: 5
-
-  # PHP后端服务
-  gptserver:
-    build:
-      context: ./docker/php
-      dockerfile: Dockerfile
-    container_name: medical-gpt-server
-    restart: unless-stopped
-    working_dir: /var/www/html
-    environment:
-      - MEDICAL_MODE=true
-      - DB_HOST=mysql
-      - DB_DATABASE=gptlink_edu
-      - DB_USERNAME=gptlink
-      - DB_PASSWORD=${MYSQL_PASSWORD:-your_secure_password}
-      - REDIS_HOST=redis
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-your_redis_password}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
-      - OPENAI_HOST=${OPENAI_HOST:-https://api.openai.com}
-      - OPENAI_MAX_TOKENS=2000
-      - OPENAI_TEMPERATURE=0.7
-      - MEDICAL_SAFETY_CHECK=true
-      - DAILY_REQUEST_LIMIT=50
-      - SESSION_TIMEOUT=1800
-    volumes:
-      - ./gptserver:/var/www/html
-      - ./logs/php:/var/log/php
-    ports:
-      - "127.0.0.1:9000:80"     # 仅本地访问
-      - "127.0.0.1:9503:9503"   # 仅本地访问
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - medical-gpt
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # Nginx Web服务器
-  nginx:
-    image: nginx:alpine
-    container_name: medical-gpt-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./gptweb:/usr/share/nginx/html/web:ro
-      - ./gptadmin:/usr/share/nginx/html/admin:ro
-      - ./logs/nginx:/var/log/nginx
-      - ./ssl_certs:/etc/nginx/ssl:ro
-    depends_on:
-      - gptserver
-    networks:
-      - medical-gpt
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
-      timeout: 3s
-      retries: 3
-
-volumes:
-  mysql_data:
-    driver: local
-  redis_data:
-    driver: local
-
-networks:
-  medical-gpt:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
-```
-
-### 4. 安全配置
-
-#### 4.1 防火墙配置
+### 4. 执行部署脚本
 
 ```bash
-# 安装UFW防火墙
-sudo apt install ufw -y
-
-# 配置防火墙规则
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow ssh
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-
-# 启用防火墙
-sudo ufw --force enable
-
-# 查看防火墙状态
-sudo ufw status
-```
-
-#### 4.2 SSL证书配置
-
-```bash
-# 安装Certbot
-sudo apt install certbot -y
-
-# 申请SSL证书（替换your-domain.com为实际域名）
-sudo certbot certonly --standalone -d your-domain.com
-
-# 复制证书到项目目录
-sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem ./ssl_certs/
-sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem ./ssl_certs/
-sudo chown $USER:$USER ./ssl_certs/*
-```
-
-### 5. 部署执行
-
-#### 5.1 创建部署脚本
-
-创建 `deploy-aliyun.sh`：
-
-```bash
-#!/bin/bash
-
-# 阿里云服务器部署脚本
-set -e
-
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# 检查环境
-check_environment() {
-    log_info "检查部署环境..."
-    
-    # 检查Docker
-    if ! command -v docker &> /dev/null; then
-        log_error "Docker未安装"
-        exit 1
-    fi
-    
-    # 检查Docker Compose
-    if ! command -v docker-compose &> /dev/null; then
-        log_error "Docker Compose未安装"
-        exit 1
-    fi
-    
-    # 检查环境变量文件
-    if [ ! -f "gptserver/.env" ]; then
-        log_error "环境配置文件不存在，请先配置 gptserver/.env"
-        exit 1
-    fi
-    
-    log_success "环境检查通过"
-}
-
-# 创建必要目录
-create_directories() {
-    log_info "创建必要目录..."
-    
-    mkdir -p logs/{nginx,mysql,php,redis}
-    mkdir -p data/{mysql,redis}
-    mkdir -p ssl_certs
-    
-    # 设置权限
-    chmod -R 755 logs/
-    chmod -R 755 data/
-    
-    log_success "目录创建完成"
-}
-
-# 部署服务
-deploy_services() {
-    log_info "部署服务..."
-    
-    # 停止现有服务
-    docker-compose -f docker-compose.aliyun.yml down --remove-orphans
-    
-    # 拉取最新镜像
-    docker-compose -f docker-compose.aliyun.yml pull
-    
-    # 构建并启动服务
-    docker-compose -f docker-compose.aliyun.yml up -d --build
-    
-    log_success "服务部署完成"
-}
-
-# 等待服务启动
-wait_for_services() {
-    log_info "等待服务启动..."
-    
-    # 等待MySQL
-    log_info "等待MySQL服务..."
-    timeout=60
-    while [ $timeout -gt 0 ]; do
-        if docker-compose -f docker-compose.aliyun.yml exec -T mysql mysqladmin ping -h localhost --silent; then
-            break
-        fi
-        sleep 2
-        timeout=$((timeout-2))
-    done
-    
-    if [ $timeout -le 0 ]; then
-        log_error "MySQL服务启动超时"
-        exit 1
-    fi
-    
-    # 等待Redis
-    log_info "等待Redis服务..."
-    timeout=30
-    while [ $timeout -gt 0 ]; do
-        if docker-compose -f docker-compose.aliyun.yml exec -T redis redis-cli -a "${REDIS_PASSWORD:-your_redis_password}" ping > /dev/null 2>&1; then
-            break
-        fi
-        sleep 2
-        timeout=$((timeout-2))
-    done
-    
-    if [ $timeout -le 0 ]; then
-        log_error "Redis服务启动超时"
-        exit 1
-    fi
-    
-    # 等待应用服务
-    log_info "等待应用服务..."
-    sleep 15
-    
-    log_success "所有服务已启动"
-}
-
-# 健康检查
-health_check() {
-    log_info "执行健康检查..."
-    
-    # 检查服务状态
-    if ! docker-compose -f docker-compose.aliyun.yml ps | grep -q "Up"; then
-        log_error "部分服务未正常启动"
-        docker-compose -f docker-compose.aliyun.yml ps
-        exit 1
-    fi
-    
-    # 检查Web访问
-    if curl -f http://localhost/health > /dev/null 2>&1; then
-        log_success "Web服务正常"
-    else
-        log_warning "Web服务可能未完全就绪，请稍后检查"
-    fi
-    
-    log_success "健康检查完成"
-}
-
-# 显示部署信息
-show_deployment_info() {
-    log_success "医疗健康AI助手部署完成！"
-    echo ""
-    echo "=== 服务访问信息 ==="
-    echo "前端地址: http://$(curl -s ifconfig.me)"
-    echo "管理后台: http://$(curl -s ifconfig.me)/admin"
-    echo "API接口: http://$(curl -s ifconfig.me)/api"
-    echo "健康检查: http://$(curl -s ifconfig.me)/health"
-    echo ""
-    echo "=== 服务管理命令 ==="
-    echo "查看服务状态: docker-compose -f docker-compose.aliyun.yml ps"
-    echo "查看日志: docker-compose -f docker-compose.aliyun.yml logs -f"
-    echo "停止服务: docker-compose -f docker-compose.aliyun.yml down"
-    echo "重启服务: docker-compose -f docker-compose.aliyun.yml restart"
-    echo ""
-    echo "=== 监控命令 ==="
-    echo "系统资源: htop"
-    echo "磁盘使用: df -h"
-    echo "Docker状态: docker stats"
-    echo ""
-}
-
-# 主函数
-main() {
-    echo "=== 医疗健康AI助手 - 阿里云部署脚本 ==="
-    echo "开始时间: $(date)"
-    echo ""
-    
-    check_environment
-    create_directories
-    deploy_services
-    wait_for_services
-    health_check
-    show_deployment_info
-    
-    log_success "部署完成！"
-}
-
-# 错误处理
-trap 'log_error "部署过程中发生错误，请检查日志"; exit 1' ERR
-
-# 执行主函数
-main "$@"
-```
-
-#### 5.2 执行部署
-
-```bash
-# 设置执行权限
+# 给脚本执行权限
 chmod +x deploy-aliyun.sh
 
-# 设置环境变量（可选，也可以在.env文件中配置）
-export MYSQL_PASSWORD="your_secure_mysql_password"
-export REDIS_PASSWORD="your_secure_redis_password"
-export OPENAI_API_KEY="your_openai_api_key"
-
-# 执行部署
-./deploy-aliyun.sh
+# 执行部署（需要root权限）
+sudo ./deploy-aliyun.sh
 ```
 
-### 6. 监控和维护
+## 手动部署步骤
 
-#### 6.1 日志管理
+如果自动部署脚本遇到问题，可以按以下步骤手动部署：
+
+### 1. 安装Docker
 
 ```bash
-# 查看所有服务日志
-docker-compose -f docker-compose.aliyun.yml logs -f
+# CentOS
+yum remove -y docker docker-client docker-client-latest docker-common
+yum install -y yum-utils
+yum-config-manager --add-repo https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+yum install -y docker-ce docker-ce-cli containerd.io
+systemctl start docker
+systemctl enable docker
 
-# 查看特定服务日志
-docker-compose -f docker-compose.aliyun.yml logs -f nginx
-docker-compose -f docker-compose.aliyun.yml logs -f gptserver
-docker-compose -f docker-compose.aliyun.yml logs -f mysql
-docker-compose -f docker-compose.aliyun.yml logs -f redis
-
-# 查看系统日志
-tail -f logs/nginx/access.log
-tail -f logs/nginx/error.log
-tail -f logs/php/error.log
+# Ubuntu
+apt remove -y docker docker-engine docker.io containerd runc
+apt install -y apt-transport-https ca-certificates curl gnupg lsb-release
+curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://mirrors.aliyun.com/docker-ce/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt update
+apt install -y docker-ce docker-ce-cli containerd.io
+systemctl start docker
+systemctl enable docker
 ```
 
-#### 6.2 性能监控
+### 2. 安装Docker Compose
 
 ```bash
-# 安装监控工具
-sudo apt install htop iotop nethogs -y
-
-# 监控系统资源
-htop                    # CPU和内存使用情况
-iotop                   # 磁盘I/O监控
-nethogs                 # 网络使用监控
-docker stats            # Docker容器资源使用
+curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
 ```
 
-#### 6.3 备份策略
+### 3. 配置Docker镜像加速
 
 ```bash
-# 创建备份脚本
-cat > backup.sh << 'EOF'
-#!/bin/bash
-
-BACKUP_DIR="/opt/backups/medical-gpt"
-DATE=$(date +%Y%m%d_%H%M%S)
-
-# 创建备份目录
-mkdir -p $BACKUP_DIR
-
-# 备份数据库
-docker-compose -f docker-compose.aliyun.yml exec -T mysql mysqldump -u root -p$MYSQL_PASSWORD --all-databases > $BACKUP_DIR/mysql_$DATE.sql
-
-# 备份Redis数据
-docker-compose -f docker-compose.aliyun.yml exec -T redis redis-cli -a $REDIS_PASSWORD --rdb /data/dump_$DATE.rdb
-docker cp medical-gpt-redis:/data/dump_$DATE.rdb $BACKUP_DIR/
-
-# 备份配置文件
-tar -czf $BACKUP_DIR/config_$DATE.tar.gz gptserver/.env docker/
-
-# 清理7天前的备份
-find $BACKUP_DIR -name "*" -mtime +7 -delete
-
-echo "备份完成: $DATE"
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json <<EOF
+{
+  "registry-mirrors": [
+    "https://mirror.ccs.tencentyun.com",
+    "https://docker.mirrors.ustc.edu.cn"
+  ]
+}
 EOF
-
-chmod +x backup.sh
-
-# 设置定时备份（每天凌晨2点）
-(crontab -l 2>/dev/null; echo "0 2 * * * /opt/medical-gpt/backup.sh") | crontab -
+systemctl restart docker
 ```
 
-### 7. 故障排除
+### 4. 申请SSL证书
 
-#### 7.1 常见问题
-
-**问题1: 服务无法启动**
 ```bash
-# 检查服务状态
+# 安装certbot
+yum install -y epel-release certbot  # CentOS
+# 或
+apt install -y certbot  # Ubuntu
+
+# 申请证书
+certbot certonly --standalone -d medicalgpt.asia -d www.medicalgpt.asia --email admin@medicalgpt.asia --agree-tos --non-interactive
+
+# 设置自动续期
+echo "0 2 * * * root certbot renew --quiet && docker-compose -f /opt/medical-gpt/docker-compose.aliyun.yml restart nginx" >> /etc/crontab
+```
+
+### 5. 配置防火墙
+
+```bash
+# CentOS (firewalld)
+systemctl start firewalld
+systemctl enable firewalld
+firewall-cmd --permanent --add-port=80/tcp
+firewall-cmd --permanent --add-port=443/tcp
+firewall-cmd --reload
+
+# Ubuntu (ufw)
+ufw enable
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 22/tcp
+```
+
+### 6. 启动服务
+
+```bash
+cd /opt/medical-gpt
+
+# 创建必要目录
+mkdir -p logs/{nginx,php,mysql,redis}
+mkdir -p data/{mysql,redis}
+
+# 设置权限
+chown -R 1000:1000 logs data
+chmod -R 755 logs data
+
+# 启动服务
+docker-compose -f docker-compose.aliyun.yml up -d
+```
+
+## 服务管理
+
+### 常用命令
+
+```bash
+# 查看服务状态
 docker-compose -f docker-compose.aliyun.yml ps
 
-# 查看错误日志
-docker-compose -f docker-compose.aliyun.yml logs
+# 查看日志
+docker-compose -f docker-compose.aliyun.yml logs -f
 
-# 检查端口占用
-sudo netstat -tlnp | grep :80
-sudo netstat -tlnp | grep :443
+# 重启服务
+docker-compose -f docker-compose.aliyun.yml restart
+
+# 停止服务
+docker-compose -f docker-compose.aliyun.yml down
+
+# 更新服务
+docker-compose -f docker-compose.aliyun.yml pull
+docker-compose -f docker-compose.aliyun.yml up -d
 ```
 
-**问题2: 数据库连接失败**
-```bash
-# 检查MySQL服务
-docker-compose -f docker-compose.aliyun.yml exec mysql mysql -u root -p
+### 服务端口
 
-# 检查网络连接
-docker-compose -f docker-compose.aliyun.yml exec gptserver ping mysql
+- **Nginx**: 80 (HTTP), 443 (HTTPS)
+- **PHP后端**: 9503 (内部)
+- **MySQL**: 3306 (内部)
+- **Redis**: 6379 (内部)
+
+## 访问地址
+
+部署完成后，可通过以下地址访问：
+
+- **前端界面**: https://medicalgpt.asia/web/
+- **管理后台**: https://medicalgpt.asia/admin/
+- **API接口**: https://medicalgpt.asia/api/
+
+## 监控和维护
+
+### 日志位置
+
+- **Nginx日志**: `/opt/medical-gpt/logs/nginx/`
+- **PHP日志**: `/opt/medical-gpt/logs/php/`
+- **MySQL日志**: `/opt/medical-gpt/logs/mysql/`
+- **Redis日志**: `/opt/medical-gpt/logs/redis/`
+
+### 数据备份
+
+```bash
+# 数据库备份
+docker exec medical-gpt-mysql mysqldump -u root -p gptlink_edu > backup_$(date +%Y%m%d).sql
+
+# Redis备份
+docker exec medical-gpt-redis redis-cli BGSAVE
 ```
 
-**问题3: 内存不足**
+### 性能监控
+
 ```bash
-# 检查内存使用
-free -h
+# 查看容器资源使用
 docker stats
 
-# 清理Docker缓存
-docker system prune -f
-docker volume prune -f
+# 查看系统资源
+top
+df -h
+free -h
 ```
 
-#### 7.2 性能优化
+## 故障排除
 
-**MySQL优化**
-```sql
--- 在MySQL中执行
-SET GLOBAL innodb_buffer_pool_size = 512*1024*1024;
-SET GLOBAL max_connections = 1000;
-SET GLOBAL query_cache_size = 64*1024*1024;
-```
+### 常见问题
 
-**Redis优化**
-```bash
-# 在redis.conf中添加
-maxmemory 256mb
-maxmemory-policy allkeys-lru
-save 900 1
-save 300 10
-save 60 10000
-```
+1. **容器启动失败**
+   ```bash
+   # 查看详细错误信息
+   docker-compose -f docker-compose.aliyun.yml logs [service_name]
+   ```
 
-### 8. 安全加固
+2. **SSL证书问题**
+   ```bash
+   # 检查证书状态
+   certbot certificates
+   
+   # 手动续期
+   certbot renew
+   ```
 
-#### 8.1 系统安全
+3. **端口占用**
+   ```bash
+   # 查看端口占用
+   netstat -tlnp | grep :80
+   netstat -tlnp | grep :443
+   ```
 
-```bash
-# 更新系统
-sudo apt update && sudo apt upgrade -y
+4. **权限问题**
+   ```bash
+   # 修复文件权限
+   chown -R 1000:1000 /opt/medical-gpt/logs
+   chown -R 1000:1000 /opt/medical-gpt/data
+   ```
 
-# 安装安全更新
-sudo apt install unattended-upgrades -y
-sudo dpkg-reconfigure -plow unattended-upgrades
-
-# 配置SSH安全
-sudo sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-sudo sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
-sudo systemctl restart ssh
-
-# 安装fail2ban
-sudo apt install fail2ban -y
-sudo systemctl enable fail2ban
-sudo systemctl start fail2ban
-```
-
-#### 8.2 应用安全
+### 日志分析
 
 ```bash
-# 设置强密码策略
-# 在.env文件中使用复杂密码
-# 定期更换API密钥
-# 启用HTTPS
-# 配置防火墙规则
-# 定期备份数据
+# 查看Nginx访问日志
+tail -f /opt/medical-gpt/logs/nginx/access.log
+
+# 查看Nginx错误日志
+tail -f /opt/medical-gpt/logs/nginx/error.log
+
+# 查看PHP错误日志
+tail -f /opt/medical-gpt/logs/php/error.log
 ```
 
-### 9. 扩展和升级
+## 安全建议
 
-#### 9.1 水平扩展
+1. **定期更新系统和Docker镜像**
+2. **使用强密码**
+3. **启用防火墙**
+4. **定期备份数据**
+5. **监控系统资源和日志**
+6. **限制SSH访问**
+7. **使用非root用户运行应用**
 
-```yaml
-# 在docker-compose.aliyun.yml中添加多个后端实例
-gptserver-1:
-  # ... 配置同gptserver
-gptserver-2:
-  # ... 配置同gptserver
+## 性能优化
 
-# 在nginx配置中添加负载均衡
-upstream php-backend {
-    server gptserver-1:9503;
-    server gptserver-2:9503;
-}
-```
+1. **调整PHP配置**
+   - 增加内存限制
+   - 优化OPcache设置
 
-#### 9.2 版本升级
+2. **优化MySQL配置**
+   - 调整缓冲池大小
+   - 优化查询缓存
 
-```bash
-# 备份当前版本
-./backup.sh
+3. **配置Redis持久化**
+   - 启用AOF持久化
+   - 调整内存策略
 
-# 拉取新版本代码
-git pull origin main
+4. **Nginx优化**
+   - 启用Gzip压缩
+   - 配置静态文件缓存
+   - 调整工作进程数
 
-# 重新构建和部署
-docker-compose -f docker-compose.aliyun.yml down
-docker-compose -f docker-compose.aliyun.yml up -d --build
+## 联系支持
 
-# 执行数据库迁移（如果需要）
-docker-compose -f docker-compose.aliyun.yml exec gptserver php artisan migrate
-```
+如果在部署过程中遇到问题，请：
 
-## 总结
+1. 检查日志文件
+2. 确认配置文件正确
+3. 验证网络连接
+4. 查看系统资源使用情况
 
-本部署方案提供了在阿里云服务器上部署医疗健康AI助手的完整解决方案，包括：
+---
 
-1. **完整的环境配置**：从系统准备到Docker安装
-2. **优化的容器配置**：针对阿里云环境优化的Docker Compose配置
-3. **安全配置**：防火墙、SSL证书、访问控制等
-4. **自动化部署**：一键部署脚本
-5. **监控和维护**：日志管理、性能监控、备份策略
-6. **故障排除**：常见问题解决方案
-7. **扩展方案**：水平扩展和版本升级指南
-
-按照本方案执行，可以在阿里云服务器上快速、安全地部署医疗健康AI助手系统。
+**注意**: 请确保在生产环境中修改所有默认密码和密钥，并定期进行安全更新。
